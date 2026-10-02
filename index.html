@@ -100,7 +100,8 @@
   #toast{position:fixed;left:12px;right:12px;top:12px;z-index:50;max-width:540px;margin:0 auto;padding:16px;border-radius:14px;color:#fff;font-weight:800;font-size:17px;box-shadow:0 8px 24px rgba(0,0,0,.25);transition:opacity .2s;opacity:0;pointer-events:none}
   #toast.show{opacity:1}#toast.ok{background:var(--ok)}#toast.err{background:var(--bad)}#toast.info{background:#111827}
   #scanModal{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px}
-  #reader{width:100%;max-width:420px;background:#000;border-radius:12px;overflow:hidden}
+  #reader,#scanVideo{width:100%;max-width:420px;background:#000;border-radius:12px;overflow:hidden}
+  #scanVideo{max-height:60vh;object-fit:cover}
   #scanModal p{color:#fff;font-weight:700}
   .login{max-width:360px;margin:40px auto;text-align:center}
   .login h1{font-size:24px;margin:0 0 4px}
@@ -234,8 +235,13 @@
 
 <div id="toast"></div>
 <div id="scanModal" class="hidden">
-  <p>Arahkan kamera ke QR tiket</p>
+  <p id="scanMsg">Arahkan kamera ke QR tiket</p>
+  <video id="scanVideo" playsinline muted autoplay class="hidden"></video>
   <div id="reader"></div>
+  <label class="secondary" id="scanPhotoBtn" style="max-width:420px;background:#fff;text-align:center;display:block">📷 FOTO QR (jika kamera live tidak jalan)
+    <input id="scanFile" type="file" accept="image/*" capture="environment" style="display:none">
+  </label>
+  <div id="readerFile" style="display:none"></div>
   <button class="secondary" id="scanClose" style="max-width:420px;background:#fff">TUTUP</button>
 </div>
 
@@ -634,25 +640,90 @@ function loadScript(src) {
     document.head.appendChild(s);
   });
 }
-async function openScanner(onCode) {
-  try { await loadScript('https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js'); }
-  catch (e) { return toast('Scanner gagal dimuat. Ketik Ticket ID secara manual.', 'err', 4000); }
-  $('scanModal').classList.remove('hidden');
-  const sc = new Html5Qrcode('reader'); S.scanner = sc;
-  let done = false;
-  sc.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 230, height: 230 } }, txt => {
-    if (done) return; done = true; vib(); closeScanner(); onCode(txt);
-  }, () => {}).catch(() => {
-    closeScanner();
-    toast('Kamera tidak bisa dibuka di sini. Scan QR pakai kamera HP bawaan, atau ketik Ticket ID.', 'err', 5000);
-  });
+const H5Q_URL = 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
+let scanCb = null;
+function scanMsg(t, err) { $('scanMsg').textContent = t; $('scanMsg').style.color = err ? '#fca5a5' : '#fff'; }
+function scanDone(txt) {
+  const cb = scanCb; scanCb = null; vib(); closeScanner();
+  if (cb && txt) cb(String(txt));
 }
+async function nativeDetector() {
+  try {
+    if (!('BarcodeDetector' in window)) return null;
+    const f = await BarcodeDetector.getSupportedFormats();
+    return f.indexOf('qr_code') >= 0 ? new BarcodeDetector({ formats: ['qr_code'] }) : null;
+  } catch (e) { return null; }
+}
+function camErrText(e) {
+  const n = (e && (e.name || e.message || e)) + '';
+  if (/NotAllowed|Permission/i.test(n)) return 'Izin kamera ditolak. Buka ikon gembok/ⓘ di address bar → Izinkan Kamera, lalu coba lagi. Atau pakai tombol FOTO QR.';
+  if (/NotFound|Overconstrained|DevicesNotFound/i.test(n)) return 'Kamera tidak ditemukan di perangkat ini. Pakai tombol FOTO QR.';
+  if (/NotReadable|TrackStart/i.test(n)) return 'Kamera sedang dipakai aplikasi lain. Tutup aplikasi kamera lalu coba lagi.';
+  if (/secure|https/i.test(n) || !window.isSecureContext) return 'Kamera hanya bisa dipakai di halaman https. Pakai tombol FOTO QR.';
+  return 'Kamera live tidak bisa dibuka (' + n + '). Pakai tombol FOTO QR.';
+}
+async function openScanner(onCode) {
+  scanCb = onCode;
+  $('scanModal').classList.remove('hidden');
+  $('scanFile').value = '';
+  scanMsg('Membuka kamera…');
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return scanMsg(camErrText('secure'), true);
+  const det = await nativeDetector();
+  if (det) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+      if (!scanCb) { stream.getTracks().forEach(t => t.stop()); return; }
+      const v = $('scanVideo'); v.srcObject = stream; v.classList.remove('hidden'); $('reader').classList.add('hidden');
+      await v.play().catch(() => {});
+      S.scanner = { stream: stream, timer: null };
+      scanMsg('Arahkan kamera ke QR tiket');
+      const loop = async () => {
+        if (!S.scanner || !scanCb) return;
+        try { const r = await det.detect(v); if (r && r.length) return scanDone(r[0].rawValue); } catch (e) {}
+        S.scanner.timer = setTimeout(loop, 150);
+      };
+      loop();
+      return;
+    } catch (e) { return scanMsg(camErrText(e), true); }
+  }
+  try { await loadScript(H5Q_URL); }
+  catch (e) { return scanMsg('Scanner gagal dimuat (cek internet). Pakai tombol FOTO QR atau ketik Ticket ID.', true); }
+  $('scanVideo').classList.add('hidden'); $('reader').classList.remove('hidden');
+  const sc = new Html5Qrcode('reader'); S.scanner = { h5: sc };
+  sc.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 230, height: 230 } }, txt => scanDone(txt), () => {})
+    .then(() => scanMsg('Arahkan kamera ke QR tiket'))
+    .catch(e => scanMsg(camErrText(e), true));
+}
+async function scanPhoto(file) {
+  if (!file) return;
+  scanMsg('Membaca foto…');
+  try {
+    const det = await nativeDetector();
+    if (det) {
+      const bmp = await createImageBitmap(file);
+      const r = await det.detect(bmp);
+      if (r && r.length) return scanDone(r[0].rawValue);
+    }
+    await loadScript(H5Q_URL);
+    const h = new Html5Qrcode('readerFile');
+    const txt = await h.scanFile(file, false);
+    try { h.clear(); } catch (e) {}
+    return scanDone(txt);
+  } catch (e) {
+    scanMsg('QR tidak terbaca dari foto. Foto lebih dekat & tidak buram, atau ketik Ticket ID.', true);
+  }
+}
+$('scanFile').onchange = e => scanPhoto(e.target.files && e.target.files[0]);
 function closeScanner() {
   $('scanModal').classList.add('hidden');
   const sc = S.scanner; S.scanner = null;
-  if (sc) { try { sc.stop().then(() => sc.clear()).catch(() => {}); } catch (e) {} }
+  if (!sc) return;
+  if (sc.timer) clearTimeout(sc.timer);
+  if (sc.stream) { sc.stream.getTracks().forEach(t => t.stop()); const v = $('scanVideo'); v.srcObject = null; v.classList.add('hidden'); }
+  if (sc.h5) { try { sc.h5.stop().then(() => sc.h5.clear()).catch(() => {}); } catch (e) {} }
 }
-$('scanClose').onclick = closeScanner;
+$('scanClose').onclick = () => { scanCb = null; closeScanner(); };
+
 
 /* ---------- delegated clicks ---------- */
 document.addEventListener('click', e => {
