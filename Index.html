@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<style>
+  :root{--bg:#f3f4f6;--card:#fff;--ink:#111827;--mute:#6b7280;--line:#e5e7eb;--pri:#1d4ed8;--ok:#15803d;--okbg:#dcfce7;--warn:#b45309;--warnbg:#fef3c7;--bad:#b91c1c;--badbg:#fee2e2;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:16px}
+  .hidden{display:none!important}
+  header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;background:#111827;color:#fff;padding:10px 12px}
+  header .ttl{flex:1;font-weight:800;font-size:17px}
+  header .who{font-size:12px;opacity:.8;text-align:right}
+  header button{background:#374151;color:#fff;border:0;border-radius:10px;padding:8px 12px;font-size:16px;font-weight:700}
+  main{max-width:560px;margin:0 auto;padding:12px 12px 80px}
+  .lbl{font-size:12px;font-weight:800;color:var(--mute);letter-spacing:.5px;margin:14px 0 6px}
+  button{font-family:inherit;cursor:pointer}
+  button:disabled{opacity:.5}
+  .busy{pointer-events:none;opacity:.6}
+  input,textarea{width:100%;font-size:18px;padding:12px;border:2px solid var(--line);border-radius:12px;background:#fff;font-family:inherit}
+  input:focus{outline:none;border-color:var(--pri)}
+  .primary{width:100%;background:var(--pri);color:#fff;border:0;border-radius:14px;padding:16px;font-size:18px;font-weight:800;margin-top:12px}
+  .primary.big{padding:20px;font-size:20px}
+  .primary.green{background:var(--ok)}
+  .secondary{width:100%;background:#fff;color:var(--ink);border:2px solid var(--ink);border-radius:14px;padding:14px;font-size:16px;font-weight:800;margin-top:10px}
+  .warnbtn{width:100%;background:var(--warn);color:#fff;border:0;border-radius:14px;padding:16px;font-size:17px;font-weight:800;margin-top:10px}
+  .link{background:none;border:0;color:var(--pri);font-weight:700;font-size:15px;padding:10px 4px;margin-top:6px}
+  .link.danger{color:var(--bad)}
+  .grid2,.grid3,.grid4{display:grid;gap:8px}
+  .grid2{grid-template-columns:1fr 1fr}.grid3{grid-template-columns:1fr 1fr 1fr}.grid4{grid-template-columns:repeat(4,1fr)}
+  .opt{background:#fff;border:2px solid var(--line);border-radius:12px;padding:14px 6px;font-size:16px;font-weight:800;color:var(--ink)}
+  .opt small{display:block;font-size:11px;color:var(--mute);font-weight:600;margin-top:2px}
+  .opt.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .opt.on small{color:#d1d5db}
+  .pay.on[data-pay=PAID]{background:var(--ok);border-color:var(--ok);color:#fff}
+  .pay.on[data-pay=UNPAID]{background:var(--bad);border-color:var(--bad);color:#fff}
+  .seg{display:flex;gap:8px}.seg .opt{flex:1}
+  .ticketCard{background:#111827;color:#fff;border-radius:16px;padding:14px;text-align:center;margin-top:12px}
+  .ticketCard .lbl{color:#9ca3af;margin:0}
+  .ticketCard .tid{font-size:52px;font-weight:900;letter-spacing:2px;line-height:1.1}
+  .ticketCard .sub{font-size:13px;color:#d1d5db}
+  .ticketCard .link{color:#93c5fd}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .qty{display:flex;align-items:center;justify-content:space-between;background:#fff;border:2px solid var(--line);border-radius:12px}
+  .qty button{width:52px;height:50px;border:0;background:none;font-size:28px;font-weight:800}
+  .qty span{font-size:22px;font-weight:900}
+  .total{display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:12px;padding:12px 14px;margin-top:10px;font-weight:700}
+  .total b{font-size:22px}
+  details{background:#fff;border-radius:12px;padding:10px 12px;margin-top:12px}
+  details summary{font-weight:700;color:var(--mute)}
+  details input{margin-top:8px}
+  .last{font-size:14px;color:var(--mute);text-align:center;margin-top:10px}
+  .menu{display:grid;gap:12px;margin-top:8px}
+  .menu button,.menu a{display:flex;text-decoration:none;color:inherit;align-items:center;gap:14px;background:#fff;border:0;border-radius:16px;padding:22px 18px;font-size:20px;font-weight:900;box-shadow:0 1px 3px rgba(0,0,0,.08);text-align:left}
+  .menu button span,.menu a span{font-size:30px}
+  .menu .m-in{background:var(--pri);color:#fff}.menu .m-out{background:var(--ok);color:#fff}
+  .searchbar{display:flex;gap:8px}.searchbar input{flex:1;text-transform:uppercase}
+  .searchbar button{border:0;background:var(--ink);color:#fff;border-radius:12px;padding:0 18px;font-weight:800;font-size:16px}
+  .res{background:#fff;border-radius:16px;padding:16px;margin-top:14px;border-top:10px solid var(--mute)}
+  .res.ok{border-color:var(--ok)}.res.warn{border-color:var(--warn);background:var(--warnbg)}.res.bad{border-color:var(--bad);background:var(--badbg)}
+  .res.done{border-color:var(--ok);background:var(--okbg);text-align:center}
+  .rtitle{font-weight:900;font-size:18px}
+  .res.ok .rtitle{color:var(--ok)}.res.warn .rtitle{color:var(--warn)}.res.bad .rtitle{color:var(--bad)}
+  .rtid{font-size:44px;font-weight:900;letter-spacing:1px}
+  .rmsg{font-weight:700;margin-top:10px}
+  .locbig{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:10px 0 4px}
+  .locbig div{background:#111827;color:#fff;border-radius:12px;padding:8px;text-align:center}
+  .locbig small{display:block;font-size:11px;color:#9ca3af;font-weight:700}
+  .locbig b{font-size:34px}
+  .loccode{text-align:center;font-weight:800;color:var(--mute)}
+  dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:10px 0 0;font-size:15px}
+  dt{color:var(--mute)}dd{margin:0;font-weight:700}
+  .badge{display:inline-block;font-size:12px;font-weight:800;padding:2px 8px;border-radius:999px;background:#e5e7eb}
+  .badge.PAID{background:var(--okbg);color:var(--ok)}.badge.UNPAID{background:var(--badbg);color:var(--bad)}.badge.REFUNDED{background:#ede9fe;color:#6d28d9}
+  .st-DITERIMA{background:var(--warnbg);color:var(--warn)}.st-DISIMPAN{background:#dbeafe;color:var(--pri)}.st-DIAMBIL{background:var(--okbg);color:var(--ok)}.st-CANCELLED{background:var(--badbg);color:var(--bad)}
+  .qrow,.srow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;width:100%;background:#fff;border:0;border-radius:12px;padding:14px;margin-top:8px;font-size:16px;text-align:left}
+  .qrow b,.srow b{font-size:20px}
+  .qrow .tm{margin-left:auto;color:var(--mute);font-weight:700}
+  .srow .muted{width:100%;font-size:13px;color:var(--mute)}
+  .empty,.loading{text-align:center;color:var(--mute);padding:30px 10px;font-weight:700}
+  .info{background:#fff;border-radius:16px;padding:14px;margin-top:6px}
+  .info .rtid{font-size:40px}
+  .codeprev{font-size:30px;font-weight:900;text-align:center;background:#111827;color:#fff;border-radius:14px;padding:12px;margin-top:14px;letter-spacing:1px}
+  .codeprev.empty{background:#e5e7eb;color:var(--mute);font-size:16px;padding:16px}
+  .count{font-weight:800;margin-top:10px}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .stat{background:#fff;border-radius:12px;padding:12px}
+  .stat small{display:block;color:var(--mute);font-size:12px;font-weight:700}
+  .stat b{font-size:26px}
+  .stat.wide{grid-column:span 2}.stat.g b{color:var(--ok)}.stat.r b{color:var(--bad)}.stat.o b{color:var(--warn)}
+  table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;margin-top:8px;font-size:15px}
+  th,td{padding:10px;border-bottom:1px solid var(--line);text-align:right}
+  th:first-child,td:first-child{text-align:left}
+  th{background:#111827;color:#fff}
+  .bars{background:#fff;border-radius:12px;padding:12px;margin-top:8px}
+  .bar{display:flex;align-items:center;gap:8px;font-size:13px;margin:4px 0}
+  .bar span:first-child{width:44px;color:var(--mute)}
+  .bar i{display:block;height:14px;background:var(--pri);border-radius:4px}
+  #toast{position:fixed;left:12px;right:12px;top:12px;z-index:50;max-width:540px;margin:0 auto;padding:16px;border-radius:14px;color:#fff;font-weight:800;font-size:17px;box-shadow:0 8px 24px rgba(0,0,0,.25);transition:opacity .2s;opacity:0;pointer-events:none}
+  #toast.show{opacity:1}#toast.ok{background:var(--ok)}#toast.err{background:var(--bad)}#toast.info{background:#111827}
+  #scanModal{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px}
+  #reader{width:100%;max-width:420px;background:#000;border-radius:12px;overflow:hidden}
+  #scanModal p{color:#fff;font-weight:700}
+  .login{max-width:360px;margin:40px auto;text-align:center}
+  .login h1{font-size:24px;margin:0 0 4px}
+  .login input{text-align:center;font-size:28px;letter-spacing:8px}
+  .foot{text-align:center;margin-top:24px}
+</style>
+</head>
+<body>
+<header id="hdr" class="hidden">
+  <button id="btnBack">←</button>
+  <div class="ttl" id="ttl"></div>
+  <div class="who" id="who"></div>
+</header>
+
+<main>
+  <!-- LOGIN -->
+  <section id="v-login" class="view">
+    <div class="login">
+      <h1 id="loginTitle">TITIP BARANG</h1>
+      <p style="color:#6b7280">Masukkan PIN petugas</p>
+      <input id="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="••••">
+      <button class="primary" id="btnLogin">MASUK</button>
+    </div>
+  </section>
+
+  <!-- HOME -->
+  <section id="v-home" class="view hidden">
+    <div class="menu" id="menu"></div>
+    <div class="foot"><button class="link" id="btnLogout">Ganti petugas / Keluar</button></div>
+  </section>
+
+  <!-- TITIP / CHECK-IN -->
+  <section id="v-in" class="view hidden">
+    <div class="seg" id="inBooth"></div>
+    <div class="ticketCard">
+      <div class="lbl">NEXT TICKET — AMBIL TIKET FISIK INI</div>
+      <div class="tid" id="inTicket">—</div>
+      <div class="sub" id="inAvail"></div>
+      <button class="link" id="inChange">Tiket fisik beda? Ganti tiket</button>
+      <div id="inChangeBox" class="hidden" style="margin-top:6px">
+        <div class="searchbar">
+          <input id="inManual" placeholder="mis. A37" autocapitalize="characters">
+          <button id="inManualOk">PAKAI</button>
+        </div>
+        <button class="link" id="inScan">📷 Scan QR tiket</button>
+      </div>
+    </div>
+
+    <div class="lbl">JENIS BARANG</div>
+    <div class="grid3" id="inItems"></div>
+
+    <div class="row2">
+      <div><div class="lbl">QTY</div>
+        <div class="qty"><button id="qMinus">−</button><span id="qVal">1</span><button id="qPlus">+</button></div></div>
+      <div><div class="lbl">HARGA / BARANG</div>
+        <input id="inPrice" type="number" inputmode="numeric" min="0"></div>
+    </div>
+    <div class="total"><span>TOTAL</span><b id="inTotal">Rp0</b></div>
+
+    <div class="lbl">PEMBAYARAN QRIS</div>
+    <div class="grid2">
+      <button class="opt pay" data-pay="PAID">✓ PAID</button>
+      <button class="opt pay" data-pay="UNPAID">UNPAID</button>
+    </div>
+
+    <details id="inOpt">
+      <summary>Nama / No HP / Catatan (opsional)</summary>
+      <input id="inName" placeholder="Nama customer">
+      <input id="inPhone" type="tel" inputmode="tel" placeholder="No HP">
+      <input id="inNotes" placeholder="Catatan (warna tas, dll)">
+    </details>
+
+    <button class="primary big" id="inSave">SIMPAN PENITIPAN</button>
+    <div class="last" id="inLast"></div>
+  </section>
+
+  <!-- AMBIL / CHECK-OUT -->
+  <section id="v-out" class="view hidden">
+    <div class="searchbar">
+      <input id="outInput" placeholder="Scan / ketik tiket (mis. A37)" autocapitalize="characters" autocomplete="off">
+      <button id="outGo">CARI</button>
+    </div>
+    <button class="primary green" id="outScan">📷 SCAN QR TIKET</button>
+    <div id="outResult"></div>
+  </section>
+
+  <!-- STORAGE QUEUE -->
+  <section id="v-store" class="view hidden">
+    <div class="seg" id="stBooth"></div>
+    <input id="stFilter" placeholder="Filter nomor tiket (mis. 37)" style="margin-top:10px" inputmode="numeric">
+    <div class="count" id="stCount"></div>
+    <div id="stList"></div>
+  </section>
+
+  <!-- ASSIGN LOCATION -->
+  <section id="v-assign" class="view hidden">
+    <div class="info" id="asInfo"></div>
+    <div class="lbl">PILIH RAK</div><div class="grid3" id="asRack"></div>
+    <div class="lbl">PILIH TINGKAT</div><div class="grid3" id="asLevel"></div>
+    <div class="lbl">PILIH SLOT</div><div class="grid3" id="asSlot"></div>
+    <div class="codeprev empty" id="asCode">Pilih rak, tingkat, slot</div>
+    <button class="primary big" id="asSave">SIMPAN LOKASI</button>
+  </section>
+
+  <!-- SEARCH -->
+  <section id="v-search" class="view hidden">
+    <div class="searchbar">
+      <input id="sInput" placeholder="Ticket ID / nama / no HP" autocomplete="off">
+      <button id="sGo">CARI</button>
+    </div>
+    <button class="link" id="sScan">📷 Scan QR</button>
+    <div id="sResult"></div>
+  </section>
+
+  <!-- CETAK TIKET (OWNER) -->
+  <section id="v-print" class="view hidden">
+    <p style="color:#6b7280;margin-top:4px">Halaman cetak terbuka di tab baru. Sebaiknya dibuka dari laptop/PC (Chrome) lalu Cetak atau Save as PDF.</p>
+    <div class="menu" id="printLinks"></div>
+    <div id="printWarn" style="margin-top:12px;color:#b45309;font-weight:700"></div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section id="v-dash" class="view hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span id="dUpd" style="color:#6b7280;font-size:13px"></span>
+      <button class="link" id="dRefresh">↻ Refresh</button>
+    </div>
+    <div id="dBody"><div class="loading">Memuat…</div></div>
+  </section>
+</main>
+
+<div id="toast"></div>
+<div id="scanModal" class="hidden">
+  <p>Arahkan kamera ke QR tiket</p>
+  <div id="reader"></div>
+  <button class="secondary" id="scanClose" style="max-width:420px;background:#fff">TUTUP</button>
+</div>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycby8zUixDT0Vbq1-RjTd0P38zPIB8BGjy6q9wLJZQ7Tu_XCsyd8gxzmCRSoPFeHZLP7tMA/exec'; // URL /exec Apps Script kamu
+const INIT = { ticket: (function () { try { const t = new URLSearchParams(location.search).get('t'); return t ? normTicket(t) : ''; } catch (e) { return ''; } })() };
+const S = { pin:'', user:null, cfg:null, view:'', booth:'', next:null, avail:0,
+  form:{item:'',qty:1,price:0,pay:''}, req:null, timers:[], assign:null, sel:{}, lastRL:{},
+  queue:[], qBooth:'ALL', lk:{}, scanner:null, scripts:{} };
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const rp = n => 'Rp' + (Number(n) || 0).toLocaleString('id-ID');
+const vib = () => { try { navigator.vibrate && navigator.vibrate(80); } catch (e) {} };
+const newReq = () => 'R' + Date.now() + Math.random().toString(36).slice(2, 8);
+function store(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
+function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+
+function normTicket(raw) {
+  let s = String(raw || '').trim();
+  const m = s.match(/[?&]t=([^&#]+)/i);
+  if (m) { try { s = decodeURIComponent(m[1]); } catch (e) { s = m[1]; } }
+  s = s.toUpperCase().replace(/\s+/g, '');
+  const k = s.match(/^([A-Z])-?0*(\d{1,3})$/);
+  return k ? k[1] + '-' + String(parseInt(k[2], 10)).padStart(3, '0') : s;
+}
+
+/* ---------- server call ---------- */
+function call(fn, ...args) {
+  if (API_URL) return callApi(fn, [S.pin].concat(args));
+  return new Promise((resolve, reject) => {
+    google.script.run
+      .withSuccessHandler(r => {
+        if (r && r.ok) return resolve(r);
+        const err = new Error((r && r.error) || 'Tidak ada respon dari server.');
+        if (r && r.auth) err.auth = true;
+        reject(err);
+      })
+      .withFailureHandler(e => reject(new Error('Koneksi gagal: ' + ((e && e.message) || e) + '. Coba lagi.')))
+      [fn](S.pin, ...args);
+  });
+}
+async function callApi(fn, args) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 30000);
+  let r;
+  try {
+    const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ fn: fn, args: args }), signal: ctrl.signal, redirect: 'follow' });
+    r = await res.json();
+  } catch (e) {
+    throw new Error('Koneksi gagal' + (e.name === 'AbortError' ? ' (timeout)' : '') + '. Coba lagi.');
+  } finally { clearTimeout(timer); }
+  if (r && r.ok) return r;
+  const err = new Error((r && r.error) || 'Tidak ada respon dari server.');
+  if (r && r.auth) err.auth = true;
+  throw err;
+}
+function handleErr(e) { toast(e.message, 'err', 4500); if (e.auth) logout(); }
+
+let toastT;
+function toast(msg, type, ms) {
+  const t = $('toast'); t.textContent = msg; t.className = 'show ' + (type || 'ok');
+  clearTimeout(toastT); toastT = setTimeout(() => t.className = '', ms || 2200);
+}
+function busy(btn, on) { if (!btn) return; btn.disabled = on; btn.classList.toggle('busy', on); }
+
+/* ---------- navigation ---------- */
+const TITLES = { home:'Menu', in:'Titip Barang', out:'Ambil Barang', store:'Storage Queue', assign:'Tempatkan Barang', search:'Cari Barang', dash:'Dashboard', print:'Cetak Tiket QR' };
+const MENU = { in:['📥','TITIP BARANG','m-in'], out:['📤','AMBIL BARANG','m-out'], store:['🗄️','STORAGE',''], search:['🔎','CARI BARANG',''], dash:['📊','DASHBOARD',''], print:['🖨️','CETAK TIKET',''] };
+const ROLE_MENU = { BOOTH:['in','out','search'], STORAGE:['store','search','out'], OWNER:['in','out','store','search','dash','print'] };
+const INITS = { in: initIn, out: initOut, store: initStore, assign: initAssign, search: initSearch, dash: initDash, print: initPrint };
+
+function initPrint() {
+  const url = (S.cfg.webAppUrl || '').trim();
+  $('printWarn').textContent = url ? '' : 'WEBAPP_URL di sheet SETTINGS belum diisi. Isi dengan URL /exec, lalu login ulang.';
+  $('printLinks').innerHTML = url ? S.cfg.booths.map(b =>
+    `<a href="${esc(url)}?page=print&booth=${esc(b)}" target="_blank" rel="noopener"><span>🖨️</span>TIKET BOOTH ${esc(b)}</a>`
+  ).join('') : '';
+}
+
+function show(v) {
+  closeScanner();
+  S.timers.forEach(clearInterval); S.timers = [];
+  document.querySelectorAll('.view').forEach(x => x.classList.toggle('hidden', x.id !== 'v-' + v));
+  S.view = v;
+  $('hdr').classList.toggle('hidden', v === 'login');
+  $('btnBack').classList.toggle('hidden', v === 'home');
+  $('ttl').textContent = (v === 'in' ? TITLES.in + ' · Booth ' + S.booth : TITLES[v]) || '';
+  window.scrollTo(0, 0);
+  if (INITS[v]) INITS[v]();
+}
+$('btnBack').onclick = () => {
+  if (S.view === 'assign' && S.assign) return show(S.assign.back);
+  show('home');
+};
+
+/* ---------- login ---------- */
+async function doLogin(pin, silent) {
+  S.pin = String(pin || '').trim();
+  if (!S.pin) return;
+  busy($('btnLogin'), true);
+  try {
+    const r = await call('login');
+    S.user = r.user; S.cfg = r.config;
+    store('tb_pin', S.pin);
+    S.locked = r.user.role === 'BOOTH' && !!r.user.booth;
+    S.booth = S.locked ? r.user.booth : (load('tb_booth') || r.user.booth || r.config.booths[0]);
+    if (!S.locked && r.config.booths.indexOf(S.booth) < 0) S.booth = r.config.booths[0];
+    $('who').innerHTML = esc(r.user.name) + '<br>' + esc(r.user.role) + (S.locked ? ' · BOOTH ' + esc(S.booth) : '');
+    document.title = r.config.eventName;
+    renderHome();
+    if (INIT.ticket) { const t = INIT.ticket; INIT.ticket = ''; show('out'); lookupInto(t, 'outResult'); }
+    else show('home');
+  } catch (e) {
+    S.pin = ''; store('tb_pin', null); show('login');
+    if (!silent) toast(e.message, 'err', 4000);
+  } finally { busy($('btnLogin'), false); }
+}
+function logout() { S.pin = ''; S.user = null; store('tb_pin', null); $('pin').value = ''; show('login'); }
+$('btnLogin').onclick = () => doLogin($('pin').value);
+$('pin').onkeydown = e => { if (e.key === 'Enter') doLogin($('pin').value); };
+$('btnLogout').onclick = logout;
+
+function renderHome() {
+  const list = ROLE_MENU[S.user.role] || ['out', 'search'];
+  $('menu').innerHTML = list.map(k => `<button class="${MENU[k][2]}" data-menu="${k}"><span>${MENU[k][0]}</span>${MENU[k][1]}</button>`).join('');
+}
+
+function boothSeg(el, list, cur, onPick, label) {
+  $(el).innerHTML = list.map(b => `<button class="opt ${b === cur ? 'on' : ''}" data-b="${esc(b)}">${esc(label ? label(b) : 'BOOTH ' + b)}</button>`).join('');
+  $(el).onclick = e => { const b = e.target.closest('[data-b]'); if (!b) return; boothSeg(el, list, b.dataset.b, onPick, label); onPick(b.dataset.b); };
+}
+
+/* ---------- CHECK-IN ---------- */
+function initIn() {
+  $('inBooth').classList.toggle('hidden', !!S.locked);
+  if (!S.locked) boothSeg('inBooth', S.cfg.booths, S.booth, b => { S.booth = b; store('tb_booth', b); $('ttl').textContent = TITLES.in + ' · Booth ' + b; loadNext(); });
+  $('inItems').innerHTML = S.cfg.items.map((it, i) => `<button class="opt item" data-i="${i}">${esc(it.name)}<small>${rp(it.price)}</small></button>`).join('');
+  $('inChangeBox').classList.add('hidden');
+  resetForm();
+  loadNext();
+}
+async function loadNext() {
+  $('inTicket').textContent = '…'; S.next = null; $('inAvail').textContent = 'Mengambil tiket…';
+  try { const r = await call('getNextTicket', S.booth); setNext(r.ticket, r.available); }
+  catch (e) { handleErr(e); $('inTicket').textContent = '—'; $('inAvail').textContent = ''; }
+}
+function setNext(id, avail, manual) {
+  S.next = id || null; S.req = null;
+  $('inTicket').textContent = id || 'HABIS';
+  $('inAvail').textContent = !id ? `Tiket Booth ${S.booth} habis / semua sedang dipegang petugas lain`
+    : manual ? 'Tiket dipilih manual' : `Sisa tiket Booth ${S.booth}: ${avail}`;
+}
+function resetForm() {
+  S.form = { item:'', qty:1, price:0, pay:'' };
+  ['inName', 'inPhone', 'inNotes'].forEach(id => $(id).value = '');
+  $('inOpt').open = false;
+  updForm();
+}
+function updForm() {
+  const f = S.form;
+  document.querySelectorAll('#inItems .item').forEach(b => b.classList.toggle('on', S.cfg.items[b.dataset.i].name === f.item));
+  document.querySelectorAll('#v-in .pay').forEach(b => b.classList.toggle('on', b.dataset.pay === f.pay));
+  $('qVal').textContent = f.qty;
+  if (document.activeElement !== $('inPrice')) $('inPrice').value = f.item ? f.price : '';
+  $('inTotal').textContent = rp(f.qty * f.price);
+}
+$('inItems').onclick = e => { const b = e.target.closest('.item'); if (!b) return; const it = S.cfg.items[b.dataset.i]; S.form.item = it.name; S.form.price = it.price; updForm(); };
+document.querySelectorAll('#v-in .pay').forEach(b => b.onclick = () => { S.form.pay = b.dataset.pay; updForm(); });
+$('qMinus').onclick = () => { S.form.qty = Math.max(1, S.form.qty - 1); updForm(); };
+$('qPlus').onclick = () => { S.form.qty = Math.min(99, S.form.qty + 1); updForm(); };
+$('inPrice').oninput = () => { S.form.price = Math.max(0, Number($('inPrice').value) || 0); $('inTotal').textContent = rp(S.form.qty * S.form.price); };
+$('inChange').onclick = () => { $('inChangeBox').classList.toggle('hidden'); $('inManual').value = ''; };
+function useManual(raw) {
+  const id = normTicket(raw);
+  if (!/^[A-Z]-\d{3}$/.test(id)) return toast('Format tiket tidak valid. Contoh: A-037', 'err');
+  if (id[0] !== S.booth) return toast(`Tiket ${id} bukan milik Booth ${S.booth}.`, 'err');
+  setNext(id, null, true); $('inChangeBox').classList.add('hidden');
+}
+$('inManualOk').onclick = () => useManual($('inManual').value);
+$('inManual').onkeydown = e => { if (e.key === 'Enter') useManual($('inManual').value); };
+$('inScan').onclick = () => openScanner(txt => useManual(txt));
+
+$('inSave').onclick = async () => {
+  const f = S.form, ticket = S.next;
+  if (!ticket) return toast('Belum ada tiket. Pilih / ketik tiket dulu.', 'err');
+  if (!f.item) return toast('Jenis barang belum dipilih.', 'err');
+  if (!f.pay) return toast('Status pembayaran belum dipilih.', 'err');
+  if (f.pay === 'UNPAID' && !confirm('Pembayaran belum dikonfirmasi (UNPAID).\nBarang hanya valid jika PAID.\n\nTetap simpan sebagai UNPAID?')) return;
+  if (!S.req) S.req = newReq();
+  const btn = $('inSave'); busy(btn, true);
+  try {
+    const r = await call('checkIn', { booth:S.booth, ticketId:ticket, itemType:f.item, qty:f.qty, price:f.price, payment:f.pay,
+      name:$('inName').value, phone:$('inPhone').value, notes:$('inNotes').value }, S.req);
+    vib();
+    toast(`✓ ${r.tx.ticket} TERSIMPAN — serahkan tiket ${r.tx.ticket}`, 'ok', 2600);
+    $('inLast').innerHTML = `Terakhir: <b>${esc(r.tx.ticket)}</b> · ${esc(r.tx.item)} ×${r.tx.qty} · ${esc(r.tx.payment)} · ${esc(r.tx.inTime)}`;
+    resetForm(); setNext(r.next, r.available);
+  } catch (e) {
+    handleErr(e);
+    if (/sudah digunakan|tidak ditemukan|petugas lain|milik Booth/i.test(e.message)) loadNext();
+  } finally { busy(btn, false); }
+};
+
+/* ---------- LOOKUP / CHECK-OUT ---------- */
+function initOut() { $('outResult').innerHTML = ''; $('outInput').value = ''; setTimeout(() => $('outInput').focus(), 150); }
+$('outGo').onclick = () => lookupInto($('outInput').value, 'outResult');
+$('outInput').onkeydown = e => { if (e.key === 'Enter') lookupInto($('outInput').value, 'outResult'); };
+$('outScan').onclick = () => openScanner(txt => lookupInto(txt, 'outResult'));
+
+async function lookupInto(raw, cid) {
+  const id = normTicket(raw);
+  if (!id) return toast('Masukkan Ticket ID.', 'err');
+  if (cid === 'outResult') $('outInput').value = id;
+  $(cid).innerHTML = '<div class="loading">Mencari…</div>';
+  try { const r = await call('lookupTicket', id); renderLookup(r, cid); }
+  catch (e) { $(cid).innerHTML = ''; handleErr(e); }
+}
+function renderLookup(r, cid) { S.lk[r.ticket] = r; $(cid).innerHTML = resultCard(r, cid); }
+
+function kv(k, v, raw) { return `<dt>${esc(k)}</dt><dd>${raw ? v : esc(v)}</dd>`; }
+function resultCard(r, cid) {
+  const cls = { DISIMPAN:'ok', DITERIMA:'warn', DIAMBIL:'bad', CANCELLED:'bad', AVAILABLE:'', NOT_FOUND:'bad', OTHER_BOOTH:'bad' }[r.code] || '';
+  const t = r.tx;
+  const btn = (act, label, c) => `<button class="${c}" data-act="${act}" data-t="${esc(r.ticket)}" data-c="${cid}">${label}</button>`;
+  let h = `<div class="res ${cls}"><div class="rtitle">${esc(r.title)}</div><div class="rtid">${esc(r.ticket)}</div>`;
+  if (t) {
+    if (r.code === 'DISIMPAN' && t.loc) {
+      h += `<div class="locbig"><div><small>RAK</small><b>${esc(t.rack)}</b></div><div><small>TINGKAT</small><b>${esc(t.level)}</b></div><div><small>SLOT</small><b>${esc(t.slot)}</b></div></div><div class="loccode">${esc(t.loc)}</div>`;
+    }
+    h += '<dl>' + kv('Barang', t.item) + kv('Qty', t.qty) + kv('Booth', t.booth)
+      + kv('Status', `<span class="badge st-${esc(t.status)}">${esc(t.status)}</span>`, true)
+      + kv('Bayar', `<span class="badge ${esc(t.payment)}">${esc(t.payment)}</span> ${rp(t.total)}`, true)
+      + (t.loc && r.code !== 'DISIMPAN' ? kv('Lokasi', t.loc) : '')
+      + (t.name ? kv('Nama', t.name) : '') + (t.phone ? kv('No HP', t.phone) : '')
+      + kv('Masuk', t.inTime + ' · ' + t.inStaff)
+      + (t.stTime ? kv('Disusun', t.stTime + ' · ' + t.stStaff) : '')
+      + (t.outTime ? kv('Diambil', t.outTime + ' · ' + t.outStaff) : '')
+      + (t.notes ? kv('Catatan', t.notes) : '') + '</dl>';
+  }
+  if (r.message) h += `<div class="rmsg">${esc(r.message)}</div>`;
+  const live = r.code === 'DISIMPAN' || r.code === 'DITERIMA';
+  if (t && live && t.payment !== 'PAID') h += btn('paid', '💰 KONFIRMASI SUDAH BAYAR (PAID)', 'warnbtn');
+  if (r.code === 'DISIMPAN' && t.payment === 'PAID') h += btn('handover', '✅ SERAHKAN BARANG', 'primary big green');
+  if (r.code === 'DITERIMA') h += btn('place', '🗄️ TEMPATKAN KE RAK SEKARANG', 'secondary');
+  if (r.code === 'DISIMPAN') h += btn('place', 'Pindah lokasi', 'link');
+  if (t && live && S.user.role === 'OWNER') h += btn('cancel', 'Batalkan transaksi', 'link danger');
+  return h + '</div>';
+}
+
+async function doAct(act, t, cid, b) {
+  const r = S.lk[t];
+  if (act === 'place') return openAssign(r, cid === 'outResult' ? 'out' : 'search');
+  if (act === 'handover') {
+    if (!confirm(`Serahkan barang tiket ${t} ke customer?\n\nPastikan barang sudah di tangan customer & tiket fisik ditarik.`)) return;
+    busy(b, true);
+    try {
+      await call('checkOut', t, newReq());
+      vib();
+      $(cid).innerHTML = `<div class="res done"><div class="rtitle" style="color:#15803d">SELESAI ✓</div><div class="rtid">${esc(t)}</div><div class="rmsg">Barang sudah diserahkan. Simpan tiket fisik (jangan dikembalikan).</div></div>`;
+      if (cid === 'outResult') setTimeout(() => { if (S.view === 'out' && $('outResult').querySelector('.done')) initOut(); }, 2500);
+    } catch (e) { handleErr(e); lookupInto(t, cid); }
+    return;
+  }
+  if (act === 'paid') {
+    if (!confirm(`Customer tiket ${t} SUDAH membayar via QRIS?`)) return;
+    busy(b, true);
+    try { const x = await call('markPaid', t); toast('Pembayaran dikonfirmasi PAID'); renderLookup(x, cid); }
+    catch (e) { handleErr(e); busy(b, false); }
+    return;
+  }
+  if (act === 'cancel') {
+    if (!confirm(`BATALKAN transaksi ${t}? Tiket tidak bisa dipakai lagi.`)) return;
+    const refund = r && r.tx && r.tx.payment === 'PAID' && confirm('Uang dikembalikan ke customer? (OK = tandai REFUNDED)');
+    busy(b, true);
+    try { const x = await call('cancelTransaction', t, !!refund); toast('Transaksi dibatalkan', 'info'); renderLookup(x, cid); }
+    catch (e) { handleErr(e); busy(b, false); }
+  }
+}
+
+/* ---------- STORAGE ---------- */
+function initStore() {
+  boothSeg('stBooth', ['ALL'].concat(S.cfg.booths), S.qBooth, b => { S.qBooth = b; loadQueue(); }, b => b === 'ALL' ? 'SEMUA' : 'BOOTH ' + b);
+  $('stFilter').value = '';
+  $('stList').innerHTML = '<div class="loading">Memuat…</div>';
+  loadQueue();
+  S.timers.push(setInterval(() => { if (!document.hidden) loadQueue(true); }, 20000));
+}
+async function loadQueue(quiet) {
+  try { const r = await call('storageQueue', S.qBooth === 'ALL' ? '' : S.qBooth); S.queue = r.items; renderQueue(); }
+  catch (e) { if (!quiet) handleErr(e); }
+}
+function renderQueue() {
+  const f = $('stFilter').value.trim().toUpperCase().replace('-', '');
+  const items = S.queue.filter(x => !f || x.ticket.replace('-', '').indexOf(f) >= 0);
+  $('stCount').textContent = `${S.queue.length} barang BELUM DISUSUN (paling lama di atas)`;
+  $('stList').innerHTML = items.length ? items.map(x =>
+    `<button class="qrow" data-q="${esc(x.ticket)}"><b>${esc(x.ticket)}</b><span>${esc(x.item)} ×${x.qty}</span>${x.payment !== 'PAID' ? '<span class="badge UNPAID">' + esc(x.payment) + '</span>' : ''}<span class="tm">${esc(x.time)}</span></button>`
+  ).join('') : '<div class="empty">Tidak ada barang menunggu disusun 🎉</div>';
+}
+$('stFilter').oninput = renderQueue;
+
+function openAssign(r, back) { if (!r || !r.tx) return toast('Data tiket tidak lengkap, cari ulang.', 'err'); S.assign = { r: r, back: back }; show('assign'); }
+function initAssign() {
+  const t = S.assign.r.tx, b = t.booth;
+  const L = S.cfg.locations[b] || { racks:[], levels:[], slots:[] };
+  const last = S.lastRL[b] || {};
+  S.sel = { rack: last.rack || '', level: last.level || '', slot: '' };
+  $('asInfo').innerHTML = `<div class="rtid">${esc(t.ticket)}</div><div><b>${esc(t.item)} ×${t.qty}</b> · Booth ${esc(b)} · masuk ${esc(t.inTime)}</div>`
+    + (t.loc ? `<div style="margin-top:6px">Lokasi sekarang: <b>${esc(t.loc)}</b></div>` : '');
+  if (!L.racks.length) toast(`Lokasi Booth ${b} belum ada di sheet LOCATIONS.`, 'err', 4000);
+  const seg = (el, list, key, lab) => {
+    $(el).innerHTML = list.map(v => `<button class="opt ${S.sel[key] === v ? 'on' : ''}" data-v="${esc(v)}">${esc(lab(v))}</button>`).join('');
+    $(el).onclick = e => { const x = e.target.closest('[data-v]'); if (!x) return; S.sel[key] = x.dataset.v; seg(el, list, key, lab); updCode(); };
+  };
+  seg('asRack', L.racks, 'rack', v => 'RAK ' + v);
+  seg('asLevel', L.levels, 'level', v => 'T' + v);
+  seg('asSlot', L.slots, 'slot', v => v);
+  updCode();
+}
+function updCode() {
+  const s = S.sel, b = S.assign.r.tx.booth, el = $('asCode');
+  const ok = s.rack && s.level && s.slot;
+  el.className = 'codeprev' + (ok ? '' : ' empty');
+  el.textContent = ok ? `${b}-R${s.rack}-T${s.level}-${s.slot}` : 'Pilih rak, tingkat, slot';
+}
+$('asSave').onclick = async () => {
+  const s = S.sel, t = S.assign.r.tx;
+  if (!s.rack || !s.level || !s.slot) return toast('Rak/Tingkat/Slot belum dipilih.', 'err');
+  const btn = $('asSave'); busy(btn, true);
+  try {
+    const r = await call('assignLocation', t.ticket, s.rack, s.level, s.slot);
+    vib(); toast(`✓ ${r.ticket} → ${r.loc}`);
+    S.lastRL[t.booth] = { rack: s.rack, level: s.level };
+    const back = S.assign.back;
+    show(back);
+    if (back === 'out') lookupInto(r.ticket, 'outResult');
+    if (back === 'search') { $('sInput').value = r.ticket; doSearch(r.ticket); }
+  } catch (e) { handleErr(e); }
+  finally { busy(btn, false); }
+};
+
+/* ---------- SEARCH ---------- */
+function initSearch() { $('sResult').innerHTML = ''; setTimeout(() => $('sInput').focus(), 150); }
+async function doSearch(q) {
+  q = String(q || '').trim(); if (!q) return;
+  $('sResult').innerHTML = '<div class="loading">Mencari…</div>';
+  try {
+    const r = await call('search', q);
+    if (r.mode === 'ticket') return renderLookup(r.result, 'sResult');
+    $('sResult').innerHTML = r.items.length ? r.items.map(t =>
+      `<button class="srow" data-s="${esc(t.ticket)}"><b>${esc(t.ticket)}</b> ${esc(t.item)} ×${t.qty} <span class="badge st-${esc(t.status)}">${esc(t.status)}</span><div class="muted">${esc(t.name)} ${esc(t.phone)} · ${esc(t.loc || 'belum disusun')} · ${esc(t.inTime)}</div></button>`
+    ).join('') : '<div class="empty">Tidak ditemukan.</div>';
+  } catch (e) { $('sResult').innerHTML = ''; handleErr(e); }
+}
+$('sGo').onclick = () => doSearch($('sInput').value);
+$('sInput').onkeydown = e => { if (e.key === 'Enter') doSearch($('sInput').value); };
+$('sScan').onclick = () => openScanner(txt => { const id = normTicket(txt); $('sInput').value = id; doSearch(id); });
+
+/* ---------- DASHBOARD ---------- */
+function initDash() { loadDash(); S.timers.push(setInterval(() => { if (!document.hidden) loadDash(true); }, 30000)); }
+$('dRefresh').onclick = () => loadDash();
+async function loadDash(quiet) {
+  try { renderDash(await call('dashboard')); } catch (e) { if (!quiet) handleErr(e); }
+}
+function renderDash(r) {
+  const a = r.all;
+  const card = (l, v, c) => `<div class="stat ${c || ''}"><small>${l}</small><b>${v}</b></div>`;
+  let h = '<div class="stats">'
+    + card('TOTAL PENDAPATAN (PAID)', rp(a.revenue), 'wide g')
+    + card('Total Transaksi', a.tx) + card('Total Barang', a.items)
+    + card('PAID', a.paid, 'g') + card('UNPAID', a.unpaid + (a.unpaid ? ' · ' + rp(a.unpaidAmount) : ''), a.unpaid ? 'r' : '')
+    + card('Belum Disusun', a.diterima, a.diterima ? 'o' : '') + card('Disimpan', a.disimpan)
+    + card('Diambil', a.diambil) + card('Masih di Booth', a.diterima + a.disimpan)
+    + card('Dibatalkan', a.cancelled) + card('Tiket Tersedia', a.available) + '</div>';
+  const bs = r.booths;
+  const rows = [['Transaksi','tx'],['Barang','items'],['Pendapatan','revenue',rp],['UNPAID','unpaid'],['Belum disusun','diterima'],['Disimpan','disimpan'],['Diambil','diambil'],['Tiket tersedia','available']];
+  h += '<div class="lbl">PER BOOTH</div><table><tr><th></th>' + bs.map(b => `<th>Booth ${esc(b)}</th>`).join('') + '</tr>'
+    + rows.map(([l, k, f]) => `<tr><td>${l}</td>` + bs.map(b => `<td>${f ? f(r.by[b][k]) : r.by[b][k]}</td>`).join('') + '</tr>').join('') + '</table>';
+  const hrs = Object.keys(r.hourly).sort();
+  if (hrs.length) {
+    const max = Math.max.apply(null, hrs.map(k => r.hourly[k]));
+    h += '<div class="lbl">CHECK-IN PER JAM</div><div class="bars">' + hrs.map(k =>
+      `<div class="bar"><span>${k}</span><i style="width:${Math.max(4, r.hourly[k] / max * 70)}%"></i><b>${r.hourly[k]}</b></div>`).join('') + '</div>';
+  }
+  $('dBody').innerHTML = h;
+  $('dUpd').textContent = 'Update ' + r.updated + ' · auto 30 detik';
+}
+
+/* ---------- QR SCANNER (kamera di dalam app) ---------- */
+function loadScript(src) {
+  if (S.scripts[src]) return S.scripts[src];
+  return S.scripts[src] = new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = src; s.onload = res;
+    s.onerror = () => { delete S.scripts[src]; rej(new Error('Gagal memuat scanner')); };
+    document.head.appendChild(s);
+  });
+}
+async function openScanner(onCode) {
+  try { await loadScript('https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js'); }
+  catch (e) { return toast('Scanner gagal dimuat. Ketik Ticket ID secara manual.', 'err', 4000); }
+  $('scanModal').classList.remove('hidden');
+  const sc = new Html5Qrcode('reader'); S.scanner = sc;
+  let done = false;
+  sc.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 230, height: 230 } }, txt => {
+    if (done) return; done = true; vib(); closeScanner(); onCode(txt);
+  }, () => {}).catch(() => {
+    closeScanner();
+    toast('Kamera tidak bisa dibuka di sini. Scan QR pakai kamera HP bawaan, atau ketik Ticket ID.', 'err', 5000);
+  });
+}
+function closeScanner() {
+  $('scanModal').classList.add('hidden');
+  const sc = S.scanner; S.scanner = null;
+  if (sc) { try { sc.stop().then(() => sc.clear()).catch(() => {}); } catch (e) {} }
+}
+$('scanClose').onclick = closeScanner;
+
+/* ---------- delegated clicks ---------- */
+document.addEventListener('click', e => {
+  const a = e.target.closest('[data-act]'); if (a) return doAct(a.dataset.act, a.dataset.t, a.dataset.c, a);
+  const q = e.target.closest('[data-q]');
+  if (q) { const x = S.queue.find(i => i.ticket === q.dataset.q); if (x) openAssign({ ticket: x.ticket, code: 'DITERIMA', tx: x }, 'store'); return; }
+  const s = e.target.closest('[data-s]'); if (s) { $('sInput').value = s.dataset.s; return doSearch(s.dataset.s); }
+  const m = e.target.closest('[data-menu]'); if (m) show(m.dataset.menu);
+});
+
+/* ---------- start ---------- */
+(function start() {
+  const saved = load('tb_pin');
+  if (saved) doLogin(saved, true); else show('login');
+})();
+</script>
+</body>
+</html>
