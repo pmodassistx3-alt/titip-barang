@@ -282,6 +282,8 @@ const S = { pin:'', user:null, cfg:null, view:'', booth:'', next:null, avail:0,
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const rp = n => 'Rp' + (Number(n) || 0).toLocaleString('id-ID');
+const BL = () => ((S.cfg && S.cfg.boothLabel) || 'GATE');
+const Bl = () => { const l = BL().toLowerCase(); return l.charAt(0).toUpperCase() + l.slice(1); };
 const vib = () => { try { navigator.vibrate && navigator.vibrate(80); } catch (e) {} };
 const newReq = () => 'R' + Date.now() + Math.random().toString(36).slice(2, 8);
 function store(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
@@ -345,7 +347,7 @@ function initPrint() {
   const url = (S.cfg.webAppUrl || '').trim();
   $('printWarn').textContent = url ? '' : 'WEBAPP_URL di sheet SETTINGS belum diisi. Isi dengan URL /exec, lalu login ulang.';
   $('printLinks').innerHTML = url ? S.cfg.booths.map(b =>
-    `<a href="${esc(url)}?page=print&booth=${esc(b)}" target="_blank" rel="noopener"><span>🖨️</span>TIKET BOOTH ${esc(b)}</a>`
+    `<a href="${esc(url)}?page=print&booth=${esc(b)}" target="_blank" rel="noopener"><span>🖨️</span>TIKET ${BL()} ${esc(b)}</a>`
   ).join('') : '';
 }
 
@@ -356,7 +358,7 @@ function show(v) {
   S.view = v;
   $('hdr').classList.toggle('hidden', v === 'login');
   $('btnBack').classList.toggle('hidden', v === 'home');
-  $('ttl').textContent = (v === 'in' ? TITLES.in + ' · Booth ' + S.booth : TITLES[v]) || '';
+  $('ttl').textContent = (v === 'in' ? TITLES.in + ' · ' + Bl() + ' ' + S.booth : TITLES[v]) || '';
   window.scrollTo(0, 0);
   if (INITS[v]) INITS[v]();
 }
@@ -377,7 +379,7 @@ async function doLogin(pin, silent) {
     S.locked = r.user.role === 'BOOTH' && !!r.user.booth;
     S.booth = S.locked ? r.user.booth : (load('tb_booth') || r.user.booth || r.config.booths[0]);
     if (!S.locked && r.config.booths.indexOf(S.booth) < 0) S.booth = r.config.booths[0];
-    $('who').innerHTML = esc(r.user.name) + '<br>' + esc(r.user.role) + (S.locked ? ' · BOOTH ' + esc(S.booth) : '');
+    $('who').innerHTML = esc(r.user.name) + '<br>' + esc(r.user.role) + (S.locked ? ' · ' + BL() + ' ' + esc(S.booth) : '');
     document.title = r.config.eventName;
     renderHome();
     if (INIT.ticket) { const t = INIT.ticket; INIT.ticket = ''; show('out'); lookupInto(t, 'outResult'); }
@@ -398,14 +400,14 @@ function renderHome() {
 }
 
 function boothSeg(el, list, cur, onPick, label) {
-  $(el).innerHTML = list.map(b => `<button class="opt ${b === cur ? 'on' : ''}" data-b="${esc(b)}">${esc(label ? label(b) : 'BOOTH ' + b)}</button>`).join('');
+  $(el).innerHTML = list.map(b => `<button class="opt ${b === cur ? 'on' : ''}" data-b="${esc(b)}">${esc(label ? label(b) : BL() + ' ' + b)}</button>`).join('');
   $(el).onclick = e => { const b = e.target.closest('[data-b]'); if (!b) return; boothSeg(el, list, b.dataset.b, onPick, label); onPick(b.dataset.b); };
 }
 
 /* ---------- CHECK-IN ---------- */
 function initIn() {
   $('inBooth').classList.toggle('hidden', !!S.locked);
-  if (!S.locked) boothSeg('inBooth', S.cfg.booths, S.booth, b => { S.booth = b; store('tb_booth', b); $('ttl').textContent = TITLES.in + ' · Booth ' + b; loadNext(); loadPending(); });
+  if (!S.locked) boothSeg('inBooth', S.cfg.booths, S.booth, b => { S.booth = b; store('tb_booth', b); $('ttl').textContent = TITLES.in + ' · ' + Bl() + ' ' + b; loadNext(); loadPending(); });
   $('inItems').innerHTML = S.cfg.items.map((it, i) => `<button class="opt item" data-i="${i}">${esc(it.name)}<small>${rp(it.price)}</small></button>`).join('');
   $('inChangeBox').classList.add('hidden');
   resetForm();
@@ -427,8 +429,8 @@ async function loadNext() {
 function setNext(id, avail, manual) {
   S.next = id || null; S.req = null;
   $('inTicket').textContent = id || 'HABIS';
-  $('inAvail').textContent = !id ? `Tiket Booth ${S.booth} habis / semua sedang dipegang petugas lain`
-    : manual ? 'Tiket dipilih manual' : `Sisa tiket Booth ${S.booth}: ${avail}`;
+  $('inAvail').textContent = !id ? `Tiket ${Bl()} ${S.booth} habis / semua sedang dipegang petugas lain`
+    : manual ? 'Tiket dipilih manual' : `Sisa tiket ${Bl()} ${S.booth}: ${avail}`;
 }
 function resetForm() {
   S.form = { item:'', qty:1, price:0, pay:'', cashIn:'', chg:'' };
@@ -474,7 +476,7 @@ $('inChange').onclick = () => { $('inChangeBox').classList.toggle('hidden'); $('
 function useManual(raw) {
   const id = normTicket(raw);
   if (!/^[A-Z]-\d{3}$/.test(id)) return toast('Format tiket tidak valid. Contoh: A-037', 'err');
-  if (id[0] !== S.booth) return toast(`Tiket ${id} bukan milik Booth ${S.booth}.`, 'err');
+  if (id[0] !== S.booth) return toast(`Tiket ${id} bukan milik ${Bl()} ${S.booth}.`, 'err');
   setNext(id, null, true); $('inChangeBox').classList.add('hidden');
 }
 $('inManualOk').onclick = () => useManual($('inManual').value);
@@ -507,7 +509,7 @@ $('inSave').onclick = async () => {
     resetForm(); setNext(r.next, r.available); loadPending();
   } catch (e) {
     handleErr(e);
-    if (/sudah digunakan|tidak ditemukan|petugas lain|milik Booth/i.test(e.message)) loadNext();
+    if (/sudah digunakan|tidak ditemukan|petugas lain|milik (Booth|Gate)/i.test(e.message)) loadNext();
   } finally { busy(btn, false); }
 };
 
@@ -538,7 +540,7 @@ function resultCard(r, cid) {
       const parts = /^\d+$/.test(t.rack) ? [['RAK', t.rack], ['TINGKAT', t.level], ['SLOT', t.slot]].filter(p => p[1] !== '') : [['LOKASI', t.rack + (t.level ? ' ' + t.level : '')]];
       h += `<div class="locbig" style="grid-template-columns:repeat(${parts.length},1fr)">` + parts.map(p => `<div><small>${p[0]}</small><b>${esc(p[1])}</b></div>`).join('') + `</div><div class="loccode">${esc(t.loc)}</div>`;
     }
-    h += '<dl>' + kv('Barang', t.item) + kv('Qty', t.qty) + kv('Booth', t.booth)
+    h += '<dl>' + kv('Barang', t.item) + kv('Qty', t.qty) + kv(Bl(), t.booth)
       + kv('Status', `<span class="badge st-${esc(t.status)}">${esc(t.status)}</span>`, true)
       + kv('Bayar', `<span class="badge ${esc(t.payment)}">${esc(t.payment)}${t.method ? ' · ' + esc(t.method) : ''}</span> ${rp(t.total)}`, true)
       + (t.method === 'CASH' ? kv('Cash', `terima ${rp(t.cashIn)} · kembali ${rp(t.change)}${t.change > 0 ? ' (' + t.chgSt + ')' : ''}`) : '')
@@ -614,7 +616,7 @@ async function doAct(act, t, cid, b) {
 function initStore() {
   $('stBooth').classList.toggle('hidden', !!S.locked);
   if (S.locked) S.qBooth = S.booth;
-  else boothSeg('stBooth', ['ALL'].concat(S.cfg.booths), S.qBooth, b => { S.qBooth = b; loadQueue(); }, b => b === 'ALL' ? 'SEMUA' : 'BOOTH ' + b);
+  else boothSeg('stBooth', ['ALL'].concat(S.cfg.booths), S.qBooth, b => { S.qBooth = b; loadQueue(); }, b => b === 'ALL' ? 'SEMUA' : BL() + ' ' + b);
   $('stFilter').value = '';
   $('stList').innerHTML = '<div class="loading">Memuat…</div>';
   loadQueue();
@@ -639,9 +641,9 @@ function initAssign() {
   const t = S.assign.r.tx, b = t.booth;
   const L = (S.cfg.locations[b] || { list: [] }).list || [];
   S.sel = null;
-  $('asInfo').innerHTML = `<div class="rtid">${esc(t.ticket)}</div><div><b>${esc(t.item)} ×${t.qty}</b> · Booth ${esc(b)} · masuk ${esc(t.inTime)}</div>`
+  $('asInfo').innerHTML = `<div class="rtid">${esc(t.ticket)}</div><div><b>${esc(t.item)} ×${t.qty}</b> · ${Bl()} ${esc(b)} · masuk ${esc(t.inTime)}</div>`
     + (t.loc ? `<div style="margin-top:6px">Lokasi sekarang: <b>${esc(t.loc)}</b></div>` : '');
-  if (!L.length) toast(`Lokasi Booth ${b} belum ada di sheet LOCATIONS.`, 'err', 4000);
+  if (!L.length) toast(`Lokasi ${Bl()} ${b} belum ada di sheet LOCATIONS.`, 'err', 4000);
   const render = () => {
     $('asLoc').innerHTML = L.map((x, i) => `<button class="opt ${S.sel === x ? 'on' : ''}" data-li="${i}" style="padding:18px 6px;font-size:18px">${esc(x.label)}</button>`).join('');
     updCode();
@@ -702,11 +704,11 @@ function renderDash(r) {
     + card('Kembalian belum diberikan', a.changePending + (a.changePending ? ' · ' + rp(a.changePendingAmt) : ''), a.changePending ? 'o' : '')
     + card('PAID', a.paid, 'g') + card('UNPAID', a.unpaid + (a.unpaid ? ' · ' + rp(a.unpaidAmount) : ''), a.unpaid ? 'r' : '')
     + card('Belum Disusun', a.diterima, a.diterima ? 'o' : '') + card('Disimpan', a.disimpan)
-    + card('Diambil', a.diambil) + card('Masih di Booth', a.diterima + a.disimpan)
+    + card('Diambil', a.diambil) + card('Masih di ' + Bl(), a.diterima + a.disimpan)
     + card('Dibatalkan', a.cancelled) + card('Tiket Tersedia', a.available) + '</div>';
   const bs = r.booths;
   const rows = [['Transaksi','tx'],['Barang','items'],['Pendapatan','revenue',rp],['QRIS','qris',rp],['CASH','cash',rp],['Kembalian belum','changePending'],['UNPAID','unpaid'],['Belum disusun','diterima'],['Disimpan','disimpan'],['Diambil','diambil'],['Tiket tersedia','available']];
-  h += '<div class="lbl">PER BOOTH</div><table><tr><th></th>' + bs.map(b => `<th>Booth ${esc(b)}</th>`).join('') + '</tr>'
+  h += '<div class="lbl">PER ' + BL() + '</div><table><tr><th></th>' + bs.map(b => `<th>${Bl()} ${esc(b)}</th>`).join('') + '</tr>'
     + rows.map(([l, k, f]) => `<tr><td>${l}</td>` + bs.map(b => `<td>${f ? f(r.by[b][k]) : r.by[b][k]}</td>`).join('') + '</tr>').join('') + '</table>';
   const hrs = Object.keys(r.hourly).sort();
   if (hrs.length) {
