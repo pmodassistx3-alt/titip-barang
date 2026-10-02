@@ -228,10 +228,8 @@
   <!-- ASSIGN LOCATION -->
   <section id="v-assign" class="view hidden">
     <div class="info" id="asInfo"></div>
-    <div class="lbl">PILIH RAK</div><div class="grid3" id="asRack"></div>
-    <div class="lbl">PILIH TINGKAT</div><div class="grid3" id="asLevel"></div>
-    <div class="lbl">PILIH SLOT</div><div class="grid3" id="asSlot"></div>
-    <div class="codeprev empty" id="asCode">Pilih rak, tingkat, slot</div>
+    <div class="lbl">PILIH LOKASI</div><div class="grid2" id="asLoc"></div>
+    <div class="codeprev empty" id="asCode">Pilih lokasi</div>
     <button class="primary big" id="asSave">SIMPAN LOKASI</button>
   </section>
 
@@ -537,7 +535,8 @@ function resultCard(r, cid) {
   let h = `<div class="res ${cls}"><div class="rtitle">${esc(r.title)}</div><div class="rtid">${esc(r.ticket)}</div>`;
   if (t) {
     if (r.code === 'DISIMPAN' && t.loc) {
-      h += `<div class="locbig"><div><small>RAK</small><b>${esc(t.rack)}</b></div><div><small>TINGKAT</small><b>${esc(t.level)}</b></div><div><small>SLOT</small><b>${esc(t.slot)}</b></div></div><div class="loccode">${esc(t.loc)}</div>`;
+      const parts = /^\d+$/.test(t.rack) ? [['RAK', t.rack], ['TINGKAT', t.level], ['SLOT', t.slot]].filter(p => p[1] !== '') : [['LOKASI', t.rack + (t.level ? ' ' + t.level : '')]];
+      h += `<div class="locbig" style="grid-template-columns:repeat(${parts.length},1fr)">` + parts.map(p => `<div><small>${p[0]}</small><b>${esc(p[1])}</b></div>`).join('') + `</div><div class="loccode">${esc(t.loc)}</div>`;
     }
     h += '<dl>' + kv('Barang', t.item) + kv('Qty', t.qty) + kv('Booth', t.booth)
       + kv('Status', `<span class="badge st-${esc(t.status)}">${esc(t.status)}</span>`, true)
@@ -638,35 +637,30 @@ $('stFilter').oninput = renderQueue;
 function openAssign(r, back) { if (!r || !r.tx) return toast('Data tiket tidak lengkap, cari ulang.', 'err'); S.assign = { r: r, back: back }; show('assign'); }
 function initAssign() {
   const t = S.assign.r.tx, b = t.booth;
-  const L = S.cfg.locations[b] || { racks:[], levels:[], slots:[] };
-  const last = S.lastRL[b] || {};
-  S.sel = { rack: last.rack || '', level: last.level || '', slot: '' };
+  const L = (S.cfg.locations[b] || { list: [] }).list || [];
+  S.sel = null;
   $('asInfo').innerHTML = `<div class="rtid">${esc(t.ticket)}</div><div><b>${esc(t.item)} ×${t.qty}</b> · Booth ${esc(b)} · masuk ${esc(t.inTime)}</div>`
     + (t.loc ? `<div style="margin-top:6px">Lokasi sekarang: <b>${esc(t.loc)}</b></div>` : '');
-  if (!L.racks.length) toast(`Lokasi Booth ${b} belum ada di sheet LOCATIONS.`, 'err', 4000);
-  const seg = (el, list, key, lab) => {
-    $(el).innerHTML = list.map(v => `<button class="opt ${S.sel[key] === v ? 'on' : ''}" data-v="${esc(v)}">${esc(lab(v))}</button>`).join('');
-    $(el).onclick = e => { const x = e.target.closest('[data-v]'); if (!x) return; S.sel[key] = x.dataset.v; seg(el, list, key, lab); updCode(); };
+  if (!L.length) toast(`Lokasi Booth ${b} belum ada di sheet LOCATIONS.`, 'err', 4000);
+  const render = () => {
+    $('asLoc').innerHTML = L.map((x, i) => `<button class="opt ${S.sel === x ? 'on' : ''}" data-li="${i}" style="padding:18px 6px;font-size:18px">${esc(x.label)}</button>`).join('');
+    updCode();
   };
-  seg('asRack', L.racks, 'rack', v => 'RAK ' + v);
-  seg('asLevel', L.levels, 'level', v => 'T' + v);
-  seg('asSlot', L.slots, 'slot', v => v);
-  updCode();
+  $('asLoc').onclick = e => { const x = e.target.closest('[data-li]'); if (!x) return; S.sel = L[Number(x.dataset.li)]; render(); };
+  render();
 }
 function updCode() {
-  const s = S.sel, b = S.assign.r.tx.booth, el = $('asCode');
-  const ok = s.rack && s.level && s.slot;
-  el.className = 'codeprev' + (ok ? '' : ' empty');
-  el.textContent = ok ? `${b}-R${s.rack}-T${s.level}-${s.slot}` : 'Pilih rak, tingkat, slot';
+  const el = $('asCode');
+  el.className = 'codeprev' + (S.sel ? '' : ' empty');
+  el.textContent = S.sel ? S.sel.code : 'Pilih lokasi';
 }
 $('asSave').onclick = async () => {
   const s = S.sel, t = S.assign.r.tx;
-  if (!s.rack || !s.level || !s.slot) return toast('Rak/Tingkat/Slot belum dipilih.', 'err');
+  if (!s) return toast('Lokasi belum dipilih.', 'err');
   const btn = $('asSave'); busy(btn, true);
   try {
     const r = await call('assignLocation', t.ticket, s.rack, s.level, s.slot);
     vib(); toast(`✓ ${r.ticket} → ${r.loc}`);
-    S.lastRL[t.booth] = { rack: s.rack, level: s.level };
     const back = S.assign.back;
     show(back);
     if (back === 'out') lookupInto(r.ticket, 'outResult');
