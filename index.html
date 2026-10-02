@@ -33,7 +33,18 @@
   .opt small{display:block;font-size:11px;color:var(--mute);font-weight:600;margin-top:2px}
   .opt.on{background:var(--ink);color:#fff;border-color:var(--ink)}
   .opt.on small{color:#d1d5db}
-  .pay.on[data-pay=PAID]{background:var(--ok);border-color:var(--ok);color:#fff}
+  .pay.on[data-pay=QRIS],.pay.on[data-pay=CASH]{background:var(--ok);border-color:var(--ok);color:#fff}
+  .cashbox{background:#fff;border-radius:12px;padding:12px;margin-top:10px;border:2px solid var(--ok)}
+  .cashbox .chg{display:flex;justify-content:space-between;align-items:center;font-weight:800;margin-top:10px}
+  .cashbox .chg b{font-size:24px}
+  .chgopt.on[data-chg=SUDAH]{background:var(--ok);border-color:var(--ok);color:#fff}
+  .chgopt.on[data-chg=BELUM]{background:var(--warn);border-color:var(--warn);color:#fff}
+  .pending{background:var(--warnbg);border:2px solid var(--warn);border-radius:12px;padding:10px 12px;margin-top:12px}
+  .pending .prow{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid #fcd34d}
+  .pending .prow:first-of-type{border-top:0}
+  .pending .prow span{flex:1}
+  .pending .prow button{border:0;background:var(--ok);color:#fff;border-radius:8px;padding:8px 12px;font-weight:800}
+  .chgwarn{background:var(--warn);color:#fff;border-radius:10px;padding:10px;font-weight:800;margin-top:10px;text-align:center}
   .pay.on[data-pay=UNPAID]{background:var(--bad);border-color:var(--bad);color:#fff}
   .seg{display:flex;gap:8px}.seg .opt{flex:1}
   .ticketCard{background:#111827;color:#fff;border-radius:16px;padding:14px;text-align:center;margin-top:12px}
@@ -161,10 +172,27 @@
     </div>
     <div class="total"><span>TOTAL</span><b id="inTotal">Rp0</b></div>
 
-    <div class="lbl">PEMBAYARAN QRIS</div>
-    <div class="grid2">
-      <button class="opt pay" data-pay="PAID">✓ PAID</button>
+    <div class="lbl">PEMBAYARAN</div>
+    <div class="grid3">
+      <button class="opt pay" data-pay="QRIS">✓ QRIS</button>
+      <button class="opt pay" data-pay="CASH">✓ CASH</button>
       <button class="opt pay" data-pay="UNPAID">UNPAID</button>
+    </div>
+    <div class="cashbox hidden" id="cashBox">
+      <div class="lbl" style="margin-top:0">UANG DITERIMA</div>
+      <input id="cashIn" type="number" inputmode="numeric" min="0" placeholder="Kosong = uang pas">
+      <div class="grid4" style="margin-top:8px" id="cashQuick">
+        <button class="opt" data-cash="pas">Pas</button><button class="opt" data-cash="20000">20rb</button>
+        <button class="opt" data-cash="50000">50rb</button><button class="opt" data-cash="100000">100rb</button>
+      </div>
+      <div class="chg"><span>KEMBALIAN</span><b id="chgVal">Rp0</b></div>
+      <div id="chgAsk" class="hidden">
+        <div class="lbl">KEMBALIAN SUDAH DIBERIKAN?</div>
+        <div class="grid2">
+          <button class="opt chgopt" data-chg="SUDAH">✓ SUDAH</button>
+          <button class="opt chgopt" data-chg="BELUM">BELUM (catat)</button>
+        </div>
+      </div>
     </div>
 
     <details id="inOpt">
@@ -176,6 +204,7 @@
 
     <button class="primary big" id="inSave">SIMPAN PENITIPAN</button>
     <div class="last" id="inLast"></div>
+    <div id="inPending"></div>
   </section>
 
   <!-- AMBIL / CHECK-OUT -->
@@ -378,11 +407,19 @@ function boothSeg(el, list, cur, onPick, label) {
 /* ---------- CHECK-IN ---------- */
 function initIn() {
   $('inBooth').classList.toggle('hidden', !!S.locked);
-  if (!S.locked) boothSeg('inBooth', S.cfg.booths, S.booth, b => { S.booth = b; store('tb_booth', b); $('ttl').textContent = TITLES.in + ' · Booth ' + b; loadNext(); });
+  if (!S.locked) boothSeg('inBooth', S.cfg.booths, S.booth, b => { S.booth = b; store('tb_booth', b); $('ttl').textContent = TITLES.in + ' · Booth ' + b; loadNext(); loadPending(); });
   $('inItems').innerHTML = S.cfg.items.map((it, i) => `<button class="opt item" data-i="${i}">${esc(it.name)}<small>${rp(it.price)}</small></button>`).join('');
   $('inChangeBox').classList.add('hidden');
   resetForm();
   loadNext();
+  loadPending();
+}
+async function loadPending() {
+  try {
+    const r = await call('pendingChange', S.booth);
+    $('inPending').innerHTML = r.items.length ? `<div class="pending"><b>⚠️ KEMBALIAN BELUM DIBERIKAN (${r.items.length}) · ${rp(r.total)}</b>` +
+      r.items.map(x => `<div class="prow"><span><b>${esc(x.ticket)}</b> · ${rp(x.change)} · ${esc(x.time)}</span><button data-act="changegiven" data-t="${esc(x.ticket)}" data-c="inPending">SUDAH</button></div>`).join('') + '</div>' : '';
+  } catch (e) { /* diam, tidak mengganggu input */ }
 }
 async function loadNext() {
   $('inTicket').textContent = '…'; S.next = null; $('inAvail').textContent = 'Mengambil tiket…';
@@ -396,7 +433,8 @@ function setNext(id, avail, manual) {
     : manual ? 'Tiket dipilih manual' : `Sisa tiket Booth ${S.booth}: ${avail}`;
 }
 function resetForm() {
-  S.form = { item:'', qty:1, price:0, pay:'' };
+  S.form = { item:'', qty:1, price:0, pay:'', cashIn:'', chg:'' };
+  $('cashIn').value = '';
   ['inName', 'inPhone', 'inNotes'].forEach(id => $(id).value = '');
   $('inOpt').open = false;
   updForm();
@@ -408,12 +446,32 @@ function updForm() {
   $('qVal').textContent = f.qty;
   if (document.activeElement !== $('inPrice')) $('inPrice').value = f.item ? f.price : '';
   $('inTotal').textContent = rp(f.qty * f.price);
+  updCash();
 }
+function changeDue() {
+  const f = S.form, total = f.qty * f.price;
+  const got = f.cashIn === '' ? total : Number(f.cashIn) || 0;
+  return got - total;
+}
+function updCash() {
+  const f = S.form;
+  $('cashBox').classList.toggle('hidden', f.pay !== 'CASH');
+  if (f.pay !== 'CASH') return;
+  const c = changeDue();
+  $('chgVal').textContent = c < 0 ? 'KURANG ' + rp(-c) : rp(c);
+  $('chgVal').style.color = c < 0 ? 'var(--bad)' : '';
+  $('chgAsk').classList.toggle('hidden', !(c > 0));
+  if (!(c > 0)) f.chg = '';
+  document.querySelectorAll('#v-in .chgopt').forEach(b => b.classList.toggle('on', b.dataset.chg === f.chg));
+}
+$('cashIn').oninput = () => { S.form.cashIn = $('cashIn').value === '' ? '' : Math.max(0, Number($('cashIn').value) || 0); updCash(); };
+$('cashQuick').onclick = e => { const b = e.target.closest('[data-cash]'); if (!b) return; S.form.cashIn = b.dataset.cash === 'pas' ? '' : Number(b.dataset.cash); $('cashIn').value = S.form.cashIn; updCash(); };
+document.querySelectorAll('#v-in .chgopt').forEach(b => b.onclick = () => { S.form.chg = b.dataset.chg; updCash(); });
 $('inItems').onclick = e => { const b = e.target.closest('.item'); if (!b) return; const it = S.cfg.items[b.dataset.i]; S.form.item = it.name; S.form.price = it.price; updForm(); };
 document.querySelectorAll('#v-in .pay').forEach(b => b.onclick = () => { S.form.pay = b.dataset.pay; updForm(); });
 $('qMinus').onclick = () => { S.form.qty = Math.max(1, S.form.qty - 1); updForm(); };
 $('qPlus').onclick = () => { S.form.qty = Math.min(99, S.form.qty + 1); updForm(); };
-$('inPrice').oninput = () => { S.form.price = Math.max(0, Number($('inPrice').value) || 0); $('inTotal').textContent = rp(S.form.qty * S.form.price); };
+$('inPrice').oninput = () => { S.form.price = Math.max(0, Number($('inPrice').value) || 0); $('inTotal').textContent = rp(S.form.qty * S.form.price); updCash(); };
 $('inChange').onclick = () => { $('inChangeBox').classList.toggle('hidden'); $('inManual').value = ''; };
 function useManual(raw) {
   const id = normTicket(raw);
@@ -430,16 +488,25 @@ $('inSave').onclick = async () => {
   if (!ticket) return toast('Belum ada tiket. Pilih / ketik tiket dulu.', 'err');
   if (!f.item) return toast('Jenis barang belum dipilih.', 'err');
   if (!f.pay) return toast('Status pembayaran belum dipilih.', 'err');
+  if (f.pay === 'CASH') {
+    const c = changeDue();
+    if (c < 0) return toast('Uang diterima kurang dari total.', 'err');
+    if (c > 0 && !f.chg) return toast('Kembalian sudah diberikan atau belum? Pilih dulu.', 'err');
+  }
   if (f.pay === 'UNPAID' && !confirm('Pembayaran belum dikonfirmasi (UNPAID).\nBarang hanya valid jika PAID.\n\nTetap simpan sebagai UNPAID?')) return;
   if (!S.req) S.req = newReq();
   const btn = $('inSave'); busy(btn, true);
   try {
-    const r = await call('checkIn', { booth:S.booth, ticketId:ticket, itemType:f.item, qty:f.qty, price:f.price, payment:f.pay,
+    const paid = f.pay === 'QRIS' || f.pay === 'CASH';
+    const r = await call('checkIn', { booth:S.booth, ticketId:ticket, itemType:f.item, qty:f.qty, price:f.price,
+      payment: paid ? 'PAID' : 'UNPAID', method: paid ? f.pay : '', cashReceived: f.pay === 'CASH' ? f.cashIn : '',
+      changeGiven: f.chg === 'SUDAH' ? true : f.chg === 'BELUM' ? false : null,
       name:$('inName').value, phone:$('inPhone').value, notes:$('inNotes').value }, S.req);
     vib();
-    toast(`✓ ${r.tx.ticket} TERSIMPAN — serahkan tiket ${r.tx.ticket}`, 'ok', 2600);
-    $('inLast').innerHTML = `Terakhir: <b>${esc(r.tx.ticket)}</b> · ${esc(r.tx.item)} ×${r.tx.qty} · ${esc(r.tx.payment)} · ${esc(r.tx.inTime)}`;
-    resetForm(); setNext(r.next, r.available);
+    if (r.tx.chgSt === 'BELUM') toast(`✓ ${r.tx.ticket} TERSIMPAN — KEMBALIAN ${rp(r.tx.change)} BELUM DIBERIKAN (dicatat)`, 'info', 4000);
+    else toast(`✓ ${r.tx.ticket} TERSIMPAN — serahkan tiket ${r.tx.ticket}`, 'ok', 2600);
+    $('inLast').innerHTML = `Terakhir: <b>${esc(r.tx.ticket)}</b> · ${esc(r.tx.item)} ×${r.tx.qty} · ${esc(r.tx.payment)}${r.tx.method ? ' ' + esc(r.tx.method) : ''} · ${esc(r.tx.inTime)}`;
+    resetForm(); setNext(r.next, r.available); loadPending();
   } catch (e) {
     handleErr(e);
     if (/sudah digunakan|tidak ditemukan|petugas lain|milik Booth/i.test(e.message)) loadNext();
@@ -474,7 +541,8 @@ function resultCard(r, cid) {
     }
     h += '<dl>' + kv('Barang', t.item) + kv('Qty', t.qty) + kv('Booth', t.booth)
       + kv('Status', `<span class="badge st-${esc(t.status)}">${esc(t.status)}</span>`, true)
-      + kv('Bayar', `<span class="badge ${esc(t.payment)}">${esc(t.payment)}</span> ${rp(t.total)}`, true)
+      + kv('Bayar', `<span class="badge ${esc(t.payment)}">${esc(t.payment)}${t.method ? ' · ' + esc(t.method) : ''}</span> ${rp(t.total)}`, true)
+      + (t.method === 'CASH' ? kv('Cash', `terima ${rp(t.cashIn)} · kembali ${rp(t.change)}${t.change > 0 ? ' (' + t.chgSt + ')' : ''}`) : '')
       + (t.loc && r.code !== 'DISIMPAN' ? kv('Lokasi', t.loc) : '')
       + (t.name ? kv('Nama', t.name) : '') + (t.phone ? kv('No HP', t.phone) : '')
       + kv('Masuk', t.inTime + ' · ' + t.inStaff)
@@ -484,7 +552,8 @@ function resultCard(r, cid) {
   }
   if (r.message) h += `<div class="rmsg">${esc(r.message)}</div>`;
   const live = r.code === 'DISIMPAN' || r.code === 'DITERIMA';
-  if (t && live && t.payment !== 'PAID') h += btn('paid', '💰 KONFIRMASI SUDAH BAYAR (PAID)', 'warnbtn');
+  if (t && t.chgSt === 'BELUM' && r.code !== 'CANCELLED') h += `<div class="chgwarn">⚠️ KEMBALIAN ${rp(t.change)} BELUM DIBERIKAN</div>` + btn('changegiven', '💵 KEMBALIAN SUDAH DIBERIKAN', 'warnbtn');
+  if (t && live && t.payment !== 'PAID') h += btn('paidq', '💰 SUDAH BAYAR · QRIS', 'warnbtn') + btn('paidc', '💵 SUDAH BAYAR · CASH', 'warnbtn');
   if (r.code === 'DISIMPAN' && t.payment === 'PAID') h += btn('handover', '✅ SERAHKAN BARANG', 'primary big green');
   if (r.code === 'DITERIMA') h += btn('place', '🗄️ TEMPATKAN KE RAK SEKARANG', 'secondary');
   if (r.code === 'DISIMPAN') h += btn('place', 'Pindah lokasi', 'link');
@@ -496,7 +565,8 @@ async function doAct(act, t, cid, b) {
   const r = S.lk[t];
   if (act === 'place') return openAssign(r, cid === 'outResult' ? 'out' : 'search');
   if (act === 'handover') {
-    if (!confirm(`Serahkan barang tiket ${t} ke customer?\n\nPastikan barang sudah di tangan customer & tiket fisik ditarik.`)) return;
+    const pc = r && r.tx && r.tx.chgSt === 'BELUM' ? `\n\n⚠️ KEMBALIAN ${rp(r.tx.change)} BELUM DIBERIKAN — berikan & tekan tombol kembalian dulu!` : '';
+    if (!confirm(`Serahkan barang tiket ${t} ke customer?\n\nPastikan barang sudah di tangan customer & tiket fisik ditarik.${pc}`)) return;
     busy(b, true);
     try {
       await call('checkOut', t, newReq());
@@ -506,11 +576,30 @@ async function doAct(act, t, cid, b) {
     } catch (e) { handleErr(e); lookupInto(t, cid); }
     return;
   }
-  if (act === 'paid') {
-    if (!confirm(`Customer tiket ${t} SUDAH membayar via QRIS?`)) return;
+  if (act === 'paidq' || act === 'paidc') {
+    const total = r && r.tx ? r.tx.total : 0;
+    let cashIn = '', given = null;
+    if (act === 'paidq') { if (!confirm(`Customer tiket ${t} SUDAH bayar via QRIS (${rp(total)})?`)) return; }
+    else {
+      const v = prompt(`Total ${rp(total)}. Uang diterima? (kosongkan jika uang pas)`, '');
+      if (v === null) return;
+      cashIn = v.trim() === '' ? '' : Number(v.replace(/\D/g, ''));
+      const chg = (cashIn === '' ? total : cashIn) - total;
+      if (chg < 0) return toast('Uang diterima kurang dari total.', 'err');
+      if (chg > 0) given = confirm(`Kembalian ${rp(chg)}.\n\nOK = sudah diberikan\nCancel = BELUM (dicatat)`);
+    }
     busy(b, true);
-    try { const x = await call('markPaid', t); toast('Pembayaran dikonfirmasi PAID'); renderLookup(x, cid); }
+    try { const x = await call('markPaid', t, act === 'paidq' ? 'QRIS' : 'CASH', cashIn, given); toast('Pembayaran dikonfirmasi PAID'); renderLookup(x, cid); }
     catch (e) { handleErr(e); busy(b, false); }
+    return;
+  }
+  if (act === 'changegiven') {
+    if (!confirm(`Kembalian tiket ${t} sudah diberikan ke customer?`)) return;
+    busy(b, true);
+    try {
+      const x = await call('markChangeGiven', t); toast('Kembalian ditandai SUDAH diberikan');
+      if (cid === 'inPending') loadPending(); else renderLookup(x, cid);
+    } catch (e) { handleErr(e); busy(b, false); }
     return;
   }
   if (act === 'cancel') {
@@ -615,12 +704,14 @@ function renderDash(r) {
   let h = '<div class="stats">'
     + card('TOTAL PENDAPATAN (PAID)', rp(a.revenue), 'wide g')
     + card('Total Transaksi', a.tx) + card('Total Barang', a.items)
+    + card('QRIS', rp(a.qris), 'g') + card('CASH', rp(a.cash), 'g')
+    + card('Kembalian belum diberikan', a.changePending + (a.changePending ? ' · ' + rp(a.changePendingAmt) : ''), a.changePending ? 'o' : '')
     + card('PAID', a.paid, 'g') + card('UNPAID', a.unpaid + (a.unpaid ? ' · ' + rp(a.unpaidAmount) : ''), a.unpaid ? 'r' : '')
     + card('Belum Disusun', a.diterima, a.diterima ? 'o' : '') + card('Disimpan', a.disimpan)
     + card('Diambil', a.diambil) + card('Masih di Booth', a.diterima + a.disimpan)
     + card('Dibatalkan', a.cancelled) + card('Tiket Tersedia', a.available) + '</div>';
   const bs = r.booths;
-  const rows = [['Transaksi','tx'],['Barang','items'],['Pendapatan','revenue',rp],['UNPAID','unpaid'],['Belum disusun','diterima'],['Disimpan','disimpan'],['Diambil','diambil'],['Tiket tersedia','available']];
+  const rows = [['Transaksi','tx'],['Barang','items'],['Pendapatan','revenue',rp],['QRIS','qris',rp],['CASH','cash',rp],['Kembalian belum','changePending'],['UNPAID','unpaid'],['Belum disusun','diterima'],['Disimpan','disimpan'],['Diambil','diambil'],['Tiket tersedia','available']];
   h += '<div class="lbl">PER BOOTH</div><table><tr><th></th>' + bs.map(b => `<th>Booth ${esc(b)}</th>`).join('') + '</tr>'
     + rows.map(([l, k, f]) => `<tr><td>${l}</td>` + bs.map(b => `<td>${f ? f(r.by[b][k]) : r.by[b][k]}</td>`).join('') + '</tr>').join('') + '</table>';
   const hrs = Object.keys(r.hourly).sort();
