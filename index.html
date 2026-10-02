@@ -311,7 +311,7 @@ function busy(btn, on) { if (!btn) return; btn.disabled = on; btn.classList.togg
 /* ---------- navigation ---------- */
 const TITLES = { home:'Menu', in:'Titip Barang', out:'Ambil Barang', store:'Storage Queue', assign:'Tempatkan Barang', search:'Cari Barang', dash:'Dashboard', print:'Cetak Tiket QR' };
 const MENU = { in:['📥','TITIP BARANG','m-in'], out:['📤','AMBIL BARANG','m-out'], store:['🗄️','STORAGE',''], search:['🔎','CARI BARANG',''], dash:['📊','DASHBOARD',''], print:['🖨️','CETAK TIKET',''] };
-const ROLE_MENU = { BOOTH:['in','out','search'], STORAGE:['store','search','out'], OWNER:['in','out','store','search','dash','print'] };
+const ROLE_MENU = { BOOTH:['in','out','store','search'], STORAGE:['store','search','out'], OWNER:['in','out','store','search','dash','print'] };
 const INITS = { in: initIn, out: initOut, store: initStore, assign: initAssign, search: initSearch, dash: initDash, print: initPrint };
 
 function initPrint() {
@@ -524,7 +524,9 @@ async function doAct(act, t, cid, b) {
 
 /* ---------- STORAGE ---------- */
 function initStore() {
-  boothSeg('stBooth', ['ALL'].concat(S.cfg.booths), S.qBooth, b => { S.qBooth = b; loadQueue(); }, b => b === 'ALL' ? 'SEMUA' : 'BOOTH ' + b);
+  $('stBooth').classList.toggle('hidden', !!S.locked);
+  if (S.locked) S.qBooth = S.booth;
+  else boothSeg('stBooth', ['ALL'].concat(S.cfg.booths), S.qBooth, b => { S.qBooth = b; loadQueue(); }, b => b === 'ALL' ? 'SEMUA' : 'BOOTH ' + b);
   $('stFilter').value = '';
   $('stList').innerHTML = '<div class="loading">Memuat…</div>';
   loadQueue();
