@@ -33,6 +33,12 @@
   .opt small{display:block;font-size:11px;color:var(--mute);font-weight:600;margin-top:2px}
   .opt.on{background:var(--ink);color:#fff;border-color:var(--ink)}
   .opt.on small{color:#d1d5db}
+  .irow{display:flex;align-items:center;background:#fff;border:2px solid var(--line);border-radius:12px;overflow:hidden}
+  .irow.on{border-color:var(--ink);background:#f9fafb}
+  .irow .iname{flex:1;border:0;background:none;padding:14px 8px;font-size:16px;font-weight:800;text-align:left;color:var(--ink)}
+  .irow .icnt{min-width:30px;text-align:center;font-size:18px}
+  .irow .iminus{border:0;background:#e5e7eb;width:40px;align-self:stretch;font-size:22px;font-weight:800}
+  .irow:not(.on) .iminus,.irow:not(.on) .icnt{visibility:hidden}
   .pay.on[data-pay=QRIS],.pay.on[data-pay=CASH]{background:var(--ok);border-color:var(--ok);color:#fff}
   .cashbox{background:#fff;border-radius:12px;padding:12px;margin-top:10px;border:2px solid var(--ok)}
   .cashbox .chg{display:flex;justify-content:space-between;align-items:center;font-weight:800;margin-top:10px}
@@ -161,13 +167,18 @@
       </div>
     </div>
 
-    <div class="lbl">JENIS BARANG</div>
+    <div id="flatPriceBox" class="hidden">
+      <div class="lbl">1. HARGA (PER ORANG)</div>
+      <div class="grid4" id="flatPrices"></div>
+      <input id="flatCustom" type="number" inputmode="numeric" min="0" placeholder="Nominal lain (Rp)" style="margin-top:8px">
+    </div>
+    <div class="lbl" id="itemsLbl">JENIS BARANG</div>
     <div class="grid3" id="inItems"></div>
 
-    <div class="row2">
+    <div class="row2" id="perItemBox">
       <div><div class="lbl">QTY</div>
         <div class="qty"><button id="qMinus">−</button><span id="qVal">1</span><button id="qPlus">+</button></div></div>
-      <div><div class="lbl">HARGA / BARANG</div>
+      <div><div class="lbl" id="priceLbl">HARGA / BARANG</div>
         <input id="inPrice" type="number" inputmode="numeric" min="0"></div>
     </div>
     <div class="total"><span>TOTAL</span><b id="inTotal">Rp0</b></div>
@@ -300,6 +311,10 @@ function normTicket(raw) {
 
 /* ---------- server call ---------- */
 function call(fn, ...args) {
+  const slow = setTimeout(() => toast('⏳ Server agak lambat, mohon tunggu… jangan tekan ulang.', 'info', 3500), 5000);
+  return call0(fn, ...args).finally(() => clearTimeout(slow));
+}
+function call0(fn, ...args) {
   if (API_URL) return callApi(fn, [S.pin].concat(args));
   return new Promise((resolve, reject) => {
     google.script.run
@@ -335,7 +350,12 @@ function toast(msg, type, ms) {
   const t = $('toast'); t.textContent = msg; t.className = 'show ' + (type || 'ok');
   clearTimeout(toastT); toastT = setTimeout(() => t.className = '', ms || 2200);
 }
-function busy(btn, on) { if (!btn) return; btn.disabled = on; btn.classList.toggle('busy', on); }
+function busy(btn, on) {
+  if (!btn) return;
+  btn.disabled = on; btn.classList.toggle('busy', on);
+  if (on) { if (btn.dataset.txt == null) btn.dataset.txt = btn.innerHTML; btn.innerHTML = '⏳ MEMPROSES…'; }
+  else if (btn.dataset.txt != null) { btn.innerHTML = btn.dataset.txt; delete btn.dataset.txt; }
+}
 
 /* ---------- navigation ---------- */
 const TITLES = { home:'Menu', in:'Titip Barang', out:'Ambil Barang', store:'Storage Queue', assign:'Tempatkan Barang', search:'Cari Barang', dash:'Dashboard', print:'Cetak Tiket QR' };
@@ -408,7 +428,17 @@ function boothSeg(el, list, cur, onPick, label) {
 function initIn() {
   $('inBooth').classList.toggle('hidden', !!S.locked);
   if (!S.locked) boothSeg('inBooth', S.cfg.booths, S.booth, b => { S.booth = b; store('tb_booth', b); $('ttl').textContent = TITLES.in + ' · ' + Bl() + ' ' + b; loadNext(); loadPending(); });
-  $('inItems').innerHTML = S.cfg.items.map((it, i) => `<button class="opt item" data-i="${i}">${esc(it.name)}<small>${rp(it.price)}</small></button>`).join('');
+  const flat = isFlat();
+  $('priceLbl').textContent = flat ? 'HARGA / ORANG' : 'HARGA / BARANG';
+  $('flatPriceBox').classList.toggle('hidden', !flat);
+  $('perItemBox').classList.toggle('hidden', flat);
+  $('itemsLbl').textContent = flat ? '2. BARANG (tap nama untuk tambah)' : 'JENIS BARANG';
+  $('inItems').className = flat ? 'grid2' : 'grid3';
+  const fp = S.cfg.flatPrice || 25000;
+  $('flatPrices').innerHTML = [1, 2, 3, 4].map(m => `<button class="opt" data-fp="${fp * m}">${(fp * m / 1000).toLocaleString('id-ID')}rb</button>`).join('');
+  $('inItems').innerHTML = flat
+    ? S.cfg.items.map((it, i) => `<div class="irow" data-row="${i}"><button class="iname" data-add="${i}">${esc(it.name)}</button><b class="icnt">0</b><button class="iminus" data-sub="${i}">−</button></div>`).join('')
+    : S.cfg.items.map((it, i) => `<button class="opt item" data-i="${i}">${esc(it.name)}<small>${rp(it.price)}</small></button>`).join('');
   $('inChangeBox').classList.add('hidden');
   resetForm();
   loadNext();
@@ -433,23 +463,27 @@ function setNext(id, avail, manual) {
     : manual ? 'Tiket dipilih manual' : `Sisa tiket ${Bl()} ${S.booth}: ${avail}`;
 }
 function resetForm() {
-  S.form = { item:'', qty:1, price:0, pay:'', cashIn:'', chg:'' };
-  $('cashIn').value = '';
+  S.form = { item:'', counts:{}, qty: isFlat() ? 0 : 1, price: isFlat() ? (S.cfg.flatPrice || 0) : 0, pay:'', cashIn:'', chg:'' };
+  $('cashIn').value = ''; $('flatCustom').value = '';
   ['inName', 'inPhone', 'inNotes'].forEach(id => $(id).value = '');
   $('inOpt').open = false;
   updForm();
 }
 function updForm() {
   const f = S.form;
-  document.querySelectorAll('#inItems .item').forEach(b => b.classList.toggle('on', S.cfg.items[b.dataset.i].name === f.item));
+  if (isFlat()) {
+    document.querySelectorAll('#inItems .irow').forEach(r => { const c = f.counts[S.cfg.items[r.dataset.row].name] || 0; r.classList.toggle('on', c > 0); r.querySelector('.icnt').textContent = c; });
+    let preset = false;
+    document.querySelectorAll('#flatPrices [data-fp]').forEach(b => { const on = Number(b.dataset.fp) === f.price && !$('flatCustom').value; b.classList.toggle('on', on); preset = preset || on; });
+  } else document.querySelectorAll('#inItems .item').forEach(b => b.classList.toggle('on', S.cfg.items[b.dataset.i].name === f.item));
   document.querySelectorAll('#v-in .pay').forEach(b => b.classList.toggle('on', b.dataset.pay === f.pay));
   $('qVal').textContent = f.qty;
-  if (document.activeElement !== $('inPrice')) $('inPrice').value = f.item ? f.price : '';
-  $('inTotal').textContent = rp(f.qty * f.price);
+  if (document.activeElement !== $('inPrice')) $('inPrice').value = (f.item || isFlat()) ? f.price : '';
+  $('inTotal').textContent = rp(formTotal());
   updCash();
 }
 function changeDue() {
-  const f = S.form, total = f.qty * f.price;
+  const f = S.form, total = formTotal();
   const got = f.cashIn === '' ? total : Number(f.cashIn) || 0;
   return got - total;
 }
@@ -467,11 +501,27 @@ function updCash() {
 $('cashIn').oninput = () => { S.form.cashIn = $('cashIn').value === '' ? '' : Math.max(0, Number($('cashIn').value) || 0); updCash(); };
 $('cashQuick').onclick = e => { const b = e.target.closest('[data-cash]'); if (!b) return; S.form.cashIn = b.dataset.cash === 'pas' ? '' : Number(b.dataset.cash); $('cashIn').value = S.form.cashIn; updCash(); };
 document.querySelectorAll('#v-in .chgopt').forEach(b => b.onclick = () => { S.form.chg = b.dataset.chg; updCash(); });
-$('inItems').onclick = e => { const b = e.target.closest('.item'); if (!b) return; const it = S.cfg.items[b.dataset.i]; S.form.item = it.name; S.form.price = it.price; updForm(); };
+$('inItems').onclick = e => {
+  const f = S.form;
+  if (isFlat()) {
+    const a = e.target.closest('[data-add],[data-sub]'); if (!a) return;
+    const nm = S.cfg.items[a.dataset.add != null ? a.dataset.add : a.dataset.sub].name;
+    const c = (f.counts[nm] || 0) + (a.dataset.add != null ? 1 : -1);
+    if (c > 0) f.counts[nm] = Math.min(99, c); else delete f.counts[nm];
+    const names = S.cfg.items.map(x => x.name).filter(n => f.counts[n]);
+    f.item = names.map(n => n + (f.counts[n] > 1 ? ' ×' + f.counts[n] : '')).join(', ');
+    f.qty = names.reduce((s, n) => s + f.counts[n], 0);
+  } else { const b = e.target.closest('.item'); if (!b) return; const it = S.cfg.items[b.dataset.i]; f.item = it.name; f.price = it.price; }
+  updForm();
+};
+$('flatPrices').onclick = e => { const b = e.target.closest('[data-fp]'); if (!b) return; S.form.price = Number(b.dataset.fp); $('flatCustom').value = ''; updForm(); };
+$('flatCustom').oninput = () => { const v = $('flatCustom').value; S.form.price = v === '' ? (S.cfg.flatPrice || 0) : Math.max(0, Number(v) || 0); updForm(); };
+function isFlat() { return !S.cfg || S.cfg.pricing !== 'PER_BARANG'; }
+function formTotal() { const f = S.form; return isFlat() ? f.price : f.qty * f.price; }
 document.querySelectorAll('#v-in .pay').forEach(b => b.onclick = () => { S.form.pay = b.dataset.pay; updForm(); });
 $('qMinus').onclick = () => { S.form.qty = Math.max(1, S.form.qty - 1); updForm(); };
 $('qPlus').onclick = () => { S.form.qty = Math.min(99, S.form.qty + 1); updForm(); };
-$('inPrice').oninput = () => { S.form.price = Math.max(0, Number($('inPrice').value) || 0); $('inTotal').textContent = rp(S.form.qty * S.form.price); updCash(); };
+$('inPrice').oninput = () => { S.form.price = Math.max(0, Number($('inPrice').value) || 0); $('inTotal').textContent = rp(formTotal()); updCash(); };
 $('inChange').onclick = () => { $('inChangeBox').classList.toggle('hidden'); $('inManual').value = ''; };
 function useManual(raw) {
   const id = normTicket(raw);
@@ -486,7 +536,8 @@ $('inScan').onclick = () => openScanner(txt => useManual(txt));
 $('inSave').onclick = async () => {
   const f = S.form, ticket = S.next;
   if (!ticket) return toast('Belum ada tiket. Pilih / ketik tiket dulu.', 'err');
-  if (!f.item) return toast('Jenis barang belum dipilih.', 'err');
+  if (!f.item || !(f.qty >= 1)) return toast('Barang belum dipilih.', 'err');
+  if (isFlat() && !(f.price > 0) && !confirm('Harga Rp0. Tetap simpan?')) return;
   if (!f.pay) return toast('Status pembayaran belum dipilih.', 'err');
   if (f.pay === 'CASH') {
     const c = changeDue();
@@ -505,8 +556,9 @@ $('inSave').onclick = async () => {
     vib();
     if (r.tx.chgSt === 'BELUM') toast(`✓ ${r.tx.ticket} TERSIMPAN — KEMBALIAN ${rp(r.tx.change)} BELUM DIBERIKAN (dicatat)`, 'info', 4000);
     else toast(`✓ ${r.tx.ticket} TERSIMPAN — serahkan tiket ${r.tx.ticket}`, 'ok', 2600);
-    $('inLast').innerHTML = `Terakhir: <b>${esc(r.tx.ticket)}</b> · ${esc(r.tx.item)} ×${r.tx.qty} · ${esc(r.tx.payment)}${r.tx.method ? ' ' + esc(r.tx.method) : ''} · ${esc(r.tx.inTime)}`;
-    resetForm(); setNext(r.next, r.available); loadPending();
+    $('inLast').innerHTML = `Terakhir: <b>${esc(r.tx.ticket)}</b> · ${esc(r.tx.item)}${isFlat() ? ` (${r.tx.qty} brg) · ${rp(r.tx.total)}` : ` ×${r.tx.qty}`} · ${esc(r.tx.payment)}${r.tx.method ? ' ' + esc(r.tx.method) : ''} · ${esc(r.tx.inTime)}`;
+    resetForm(); setNext(r.next, r.available);
+    if (r.tx.chgSt === 'BELUM' || $('inPending').innerHTML) loadPending();
   } catch (e) {
     handleErr(e);
     if (/sudah digunakan|tidak ditemukan|petugas lain|milik (Booth|Gate)/i.test(e.message)) loadNext();
