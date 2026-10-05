@@ -395,7 +395,7 @@ $('pin').onkeydown = e => { if (e.key === 'Enter') doLogin($('pin').value); };
 $('btnLogout').onclick = logout;
 
 function renderHome() {
-  const list = ROLE_MENU[S.user.role] || ['out', 'search'];
+  const list = (ROLE_MENU[S.user.role] || ['out', 'search']).filter(k => k !== 'store' || S.cfg.useStorage);
   $('menu').innerHTML = list.map(k => `<button class="${MENU[k][2]}" data-menu="${k}"><span>${MENU[k][0]}</span>${MENU[k][1]}</button>`).join('');
 }
 
@@ -531,7 +531,7 @@ function renderLookup(r, cid) { S.lk[r.ticket] = r; $(cid).innerHTML = resultCar
 
 function kv(k, v, raw) { return `<dt>${esc(k)}</dt><dd>${raw ? v : esc(v)}</dd>`; }
 function resultCard(r, cid) {
-  const cls = { DISIMPAN:'ok', DITERIMA:'warn', DIAMBIL:'bad', CANCELLED:'bad', AVAILABLE:'', NOT_FOUND:'bad', OTHER_BOOTH:'bad' }[r.code] || '';
+  const cls = { DISIMPAN:'ok', DITERIMA: S.cfg.useStorage ? 'warn' : 'ok', DIAMBIL:'bad', CANCELLED:'bad', AVAILABLE:'', NOT_FOUND:'bad', OTHER_BOOTH:'bad' }[r.code] || '';
   const t = r.tx;
   const btn = (act, label, c) => `<button class="${c}" data-act="${act}" data-t="${esc(r.ticket)}" data-c="${cid}">${label}</button>`;
   let h = `<div class="res ${cls}"><div class="rtitle">${esc(r.title)}</div><div class="rtid">${esc(r.ticket)}</div>`;
@@ -555,9 +555,10 @@ function resultCard(r, cid) {
   const live = r.code === 'DISIMPAN' || r.code === 'DITERIMA';
   if (t && t.chgSt === 'BELUM' && r.code !== 'CANCELLED') h += `<div class="chgwarn">⚠️ KEMBALIAN ${rp(t.change)} BELUM DIBERIKAN</div>` + btn('changegiven', '💵 KEMBALIAN SUDAH DIBERIKAN', 'warnbtn');
   if (t && live && t.payment !== 'PAID') h += btn('paidq', '💰 SUDAH BAYAR · QRIS', 'warnbtn') + btn('paidc', '💵 SUDAH BAYAR · CASH', 'warnbtn');
-  if (r.code === 'DISIMPAN' && t.payment === 'PAID') h += btn('handover', '✅ SERAHKAN BARANG', 'primary big green');
-  if (r.code === 'DITERIMA') h += btn('place', '🗄️ TEMPATKAN KE RAK SEKARANG', 'secondary');
-  if (r.code === 'DISIMPAN') h += btn('place', 'Pindah lokasi', 'link');
+  const canHand = r.code === 'DISIMPAN' || (r.code === 'DITERIMA' && !S.cfg.useStorage);
+  if (canHand && t.payment === 'PAID') h += btn('handover', '✅ SERAHKAN BARANG', 'primary big green');
+  if (S.cfg.useStorage && r.code === 'DITERIMA') h += btn('place', '🗄️ TEMPATKAN KE RAK SEKARANG', 'secondary');
+  if (S.cfg.useStorage && r.code === 'DISIMPAN') h += btn('place', 'Pindah lokasi', 'link');
   if (t && live && S.user.role === 'OWNER') h += btn('cancel', 'Batalkan transaksi', 'link danger');
   return h + '</div>';
 }
@@ -703,11 +704,12 @@ function renderDash(r) {
     + card('QRIS', rp(a.qris), 'g') + card('CASH', rp(a.cash), 'g')
     + card('Kembalian belum diberikan', a.changePending + (a.changePending ? ' · ' + rp(a.changePendingAmt) : ''), a.changePending ? 'o' : '')
     + card('PAID', a.paid, 'g') + card('UNPAID', a.unpaid + (a.unpaid ? ' · ' + rp(a.unpaidAmount) : ''), a.unpaid ? 'r' : '')
-    + card('Belum Disusun', a.diterima, a.diterima ? 'o' : '') + card('Disimpan', a.disimpan)
+    + (S.cfg.useStorage ? card('Belum Disusun', a.diterima, a.diterima ? 'o' : '') + card('Disimpan', a.disimpan) : '')
     + card('Diambil', a.diambil) + card('Masih di ' + Bl(), a.diterima + a.disimpan)
     + card('Dibatalkan', a.cancelled) + card('Tiket Tersedia', a.available) + '</div>';
   const bs = r.booths;
-  const rows = [['Transaksi','tx'],['Barang','items'],['Pendapatan','revenue',rp],['QRIS','qris',rp],['CASH','cash',rp],['Kembalian belum','changePending'],['UNPAID','unpaid'],['Belum disusun','diterima'],['Disimpan','disimpan'],['Diambil','diambil'],['Tiket tersedia','available']];
+  const rows = [['Transaksi','tx'],['Barang','items'],['Pendapatan','revenue',rp],['QRIS','qris',rp],['CASH','cash',rp],['Kembalian belum','changePending'],['UNPAID','unpaid']].concat(S.cfg.useStorage ? [['Belum disusun','diterima'],['Disimpan','disimpan']] : [['Masih dititip','held']]).concat([['Diambil','diambil'],['Tiket tersedia','available']]);
+  bs.forEach(b => { r.by[b].held = r.by[b].diterima + r.by[b].disimpan; });
   h += '<div class="lbl">PER ' + BL() + '</div><table><tr><th></th>' + bs.map(b => `<th>${Bl()} ${esc(b)}</th>`).join('') + '</tr>'
     + rows.map(([l, k, f]) => `<tr><td>${l}</td>` + bs.map(b => `<td>${f ? f(r.by[b][k]) : r.by[b][k]}</td>`).join('') + '</tr>').join('') + '</table>';
   const hrs = Object.keys(r.hourly).sort();
